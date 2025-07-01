@@ -44,40 +44,52 @@
 
 ## 🚀 快速开始
 
-### 一键安装 (推荐)
+### Docker部署 (推荐)
 
-**安装 Agent (网络监控代理):**
+**运行Server (数据聚合服务器):**
 ```bash
-curl -sS https://raw.githubusercontent.com/your-username/go-net-monitoring/main/scripts/quick-install.sh | bash -s agent
+docker run -d \
+  --name netmon-server \
+  -p 8080:8080 \
+  -e COMPONENT=server \
+  zhoushoujian/go-net-monitoring:latest
 ```
 
-**安装 Server (数据聚合服务器):**
+**运行Agent (网络监控代理):**
 ```bash
-curl -sS https://raw.githubusercontent.com/your-username/go-net-monitoring/main/scripts/quick-install.sh | bash -s server
+docker run -d \
+  --name netmon-agent \
+  --privileged \
+  --network host \
+  -e COMPONENT=agent \
+  -e SERVER_URL=http://localhost:8080/api/v1/metrics \
+  zhoushoujian/go-net-monitoring:latest
 ```
 
-**交互式安装 (选择组件):**
+**使用Docker Compose:**
 ```bash
-curl -sS https://raw.githubusercontent.com/your-username/go-net-monitoring/main/scripts/quick-install.sh | bash
+curl -O https://raw.githubusercontent.com/zhoushoujian/go-net-monitoring/main/docker-compose.yml
+docker-compose up -d
 ```
 
-### 通过 webinstall.dev 安装
+### Kubernetes部署
 
-**安装 Agent:**
+**部署到Kubernetes集群:**
 ```bash
-curl -sS https://webinstall.dev/go-net-monitoring-agent | bash
-```
+# 创建命名空间和配置
+kubectl apply -f https://raw.githubusercontent.com/zhoushoujian/go-net-monitoring/main/k8s/namespace.yaml
 
-**安装 Server:**
-```bash
-curl -sS https://webinstall.dev/go-net-monitoring-server | bash
+# 部署Server (Deployment)
+kubectl apply -f https://raw.githubusercontent.com/zhoushoujian/go-net-monitoring/main/k8s/server-deployment.yaml
+
+# 部署Agent (DaemonSet)
+kubectl apply -f https://raw.githubusercontent.com/zhoushoujian/go-net-monitoring/main/k8s/agent-daemonset.yaml
 ```
 
 ### 环境要求
 
-- Go 1.19+
-- Linux/macOS (需要root权限进行网络监控)
-- libpcap开发库
+- Docker 或 Kubernetes 集群
+- Agent需要特权模式进行网络监控
 
 ### 安装依赖
 
@@ -101,7 +113,7 @@ brew install libpcap
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/go-net-monitoring.git
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
 cd go-net-monitoring
 
 # 编译
@@ -298,8 +310,8 @@ make test           # 运行测试
 如果你遇到问题或有建议，请：
 
 1. 查看 [文档](docs/)
-2. 搜索 [Issues](https://github.com/your-username/go-net-monitoring/issues)
-3. 创建新的 [Issue](https://github.com/your-username/go-net-monitoring/issues/new)
+2. 搜索 [Issues](https://github.com/zhoushoujianwork/go-net-monitoring/issues)
+3. 创建新的 [Issue](https://github.com/zhoushoujianwork/go-net-monitoring/issues/new)
 
 ---
 

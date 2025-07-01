@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netmon-server
+  namespace: monitoring
+  labels:
+    app: netmon-server
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netmon-server
+  template:
+    metadata:
+      labels:
+        app: netmon-server
+        component: server
+    spec:
+      containers:
+      - name: server
+        image: zhoushoujian/go-net-monitoring:latest
+        imagePullPolicy: Always
+        env:
+        - name: COMPONENT
+          value: "server"
+        - name: SERVER_HOST
+          value: "0.0.0.0"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: STORAGE_TYPE
+          value: "memory"
+        - name: STORAGE_RETENTION
+          value: "24h"
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: data
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netmon-server
+  namespace: monitoring
+  labels:
+    app: netmon-server
+    component: server
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: netmon-server
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netmon-server-nodeport
+  namespace: monitoring
+  labels:
+    app: netmon-server
+    component: server
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080
+    protocol: TCP
+    name: http
+  selector:
+    app: netmon-server

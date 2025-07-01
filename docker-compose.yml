@@ -1,57 +1,66 @@
 version: '3.8'
 
 services:
-  # 网络监控Server
-  network-server:
-    build: .
-    container_name: network-server
+  # 网络监控服务器
+  server:
+    image: zhoushoujian/go-net-monitoring:latest
+    container_name: netmon-server
+    environment:
+      - COMPONENT=server
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - LOG_LEVEL=info
+      - STORAGE_TYPE=memory
+      - STORAGE_RETENTION=24h
     ports:
       - "8080:8080"
     volumes:
-      - ./configs/server.yaml:/app/configs/server.yaml:ro
+      - ./data:/app/data
       - ./logs:/app/logs
-    environment:
-      - SERVER_HTTP_HOST=0.0.0.0
-      - SERVER_HTTP_PORT=8080
-      - SERVER_LOG_LEVEL=info
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
     networks:
-      - monitoring
+      - netmon
 
-  # 网络监控Agent
-  network-agent:
-    build: .
-    container_name: network-agent
-    command: ["/app/bin/agent", "--config", "/app/configs/agent.yaml"]
-    volumes:
-      - ./configs/agent.yaml:/app/configs/agent.yaml:ro
-      - ./logs:/app/logs
-      - /proc:/host/proc:ro
+  # 网络监控代理
+  agent:
+    image: zhoushoujian/go-net-monitoring:latest
+    container_name: netmon-agent
     environment:
-      - AGENT_SERVER_HOST=network-server
-      - AGENT_SERVER_PORT=8080
-      - AGENT_LOG_LEVEL=info
-    privileged: true
-    network_mode: host
-    restart: unless-stopped
+      - COMPONENT=agent
+      - NETWORK_INTERFACE=eth0
+      - SERVER_URL=http://server:8080/api/v1/metrics
+      - REPORT_INTERVAL=10s
+      - LOG_LEVEL=info
+      - BUFFER_SIZE=1000
+      - IGNORE_LOCALHOST=true
     depends_on:
-      network-server:
-        condition: service_healthy
+      - server
+    network_mode: host  # 需要访问主机网络接口
+    privileged: true    # 需要特权模式进行网络监控
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "agent"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Prometheus (可选)
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus
+    container_name: netmon-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./examples/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -62,28 +71,30 @@ services:
       - '--web.enable-lifecycle'
     restart: unless-stopped
     networks:
+      - netmon
+    profiles:
       - monitoring
 
   # Grafana (可选)
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: netmon-grafana
     ports:
       - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./examples/grafana-dashboard.json:/var/lib/grafana/dashboards/network-monitoring.json:ro
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
     restart: unless-stopped
     networks:
+      - netmon
+    profiles:
       - monitoring
-    depends_on:
-      - prometheus
 
 networks:
-  monitoring:
+  netmon:
     driver: bridge
 
 volumes:
