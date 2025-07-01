@@ -223,3 +223,42 @@ func (ct *ConnectionTracker) Cleanup(timeout time.Duration) {
 func (ct *ConnectionTracker) makeKey(localAddr, remoteAddr, protocol string) string {
 	return protocol + ":" + localAddr + "->" + remoteAddr
 }
+
+// SetIPDomainMapping 设置IP到域名的映射
+func (d *DNSCache) SetIPDomainMapping(ip, domain string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	
+	// 为这个IP创建或更新DNS条目
+	entry, exists := d.cache[ip]
+	if !exists {
+		entry = &DNSEntry{
+			Domain:    domain,
+			IPs:       []string{ip},
+			Timestamp: time.Now(),
+		}
+		d.cache[ip] = entry
+	} else {
+		// 更新域名和时间戳
+		entry.Domain = domain
+		entry.Timestamp = time.Now()
+	}
+}
+
+// GetOriginalDomain 获取IP对应的原始域名
+func (d *DNSCache) GetOriginalDomain(ip string) (string, bool) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	
+	entry, exists := d.cache[ip]
+	if !exists {
+		return "", false
+	}
+	
+	// 检查是否过期
+	if time.Since(entry.Timestamp) > d.ttl {
+		return "", false
+	}
+	
+	return entry.Domain, true
+}

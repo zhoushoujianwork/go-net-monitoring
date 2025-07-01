@@ -39,8 +39,21 @@ type NetworkMetrics struct {
 	IPsAccessed       map[string]uint64    `json:"ips_accessed"`       // ip -> count
 	ProtocolStats     map[string]uint64    `json:"protocol_stats"`     // protocol -> count
 	PortStats         map[int]uint64       `json:"port_stats"`         // port -> count
+	// 新增：按域名的流量统计
+	DomainTraffic     map[string]*DomainTrafficStats `json:"domain_traffic"` // domain -> traffic stats
 	TopProcesses      []ProcessStats       `json:"top_processes"`
 	Events            []NetworkEvent       `json:"events,omitempty"`   // 详细事件（可选）
+}
+
+// DomainTrafficStats 域名流量统计
+type DomainTrafficStats struct {
+	Domain        string `json:"domain"`
+	BytesSent     uint64 `json:"bytes_sent"`
+	BytesReceived uint64 `json:"bytes_received"`
+	PacketsSent   uint64 `json:"packets_sent"`
+	PacketsRecv   uint64 `json:"packets_received"`
+	Connections   uint64 `json:"connections"`
+	LastAccess    time.Time `json:"last_access"`
 }
 
 // ProcessStats 进程统计

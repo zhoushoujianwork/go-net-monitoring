@@ -92,20 +92,26 @@ func (a *Agent) Start() error {
 	a.logger.Info("启动网络监控Agent")
 
 	// 启动收集器
+	a.logger.Debug("正在启动收集器...")
 	if err := a.collector.Start(); err != nil {
 		return fmt.Errorf("启动收集器失败: %w", err)
 	}
+	a.logger.Debug("收集器启动成功")
 
 	// 启动上报器
+	a.logger.Debug("正在启动上报器...")
 	if err := a.reporter.Start(); err != nil {
 		return fmt.Errorf("启动上报器失败: %w", err)
 	}
+	a.logger.Debug("上报器启动成功")
 
 	// 启动指标上报协程
+	a.logger.Debug("启动指标上报协程...")
 	a.wg.Add(1)
 	go a.metricsReporter()
 
 	// 启动健康检查协程
+	a.logger.Debug("启动健康检查协程...")
 	a.wg.Add(1)
 	go a.healthChecker()
 
@@ -183,46 +189,44 @@ func (a *Agent) Run() error {
 		return err
 	}
 
+	a.logger.Info("Agent运行中，按Ctrl+C停止...")
+
 	// 等待停止信号
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// 创建一个用于强制退出的通道
-	done := make(chan error, 1)
+	// 简单等待信号
+	sig := <-sigChan
+	a.logger.Infof("收到信号 %v，开始停止Agent", sig)
 
-	// 在goroutine中处理停止逻辑
-	go func() {
-		select {
-		case sig := <-sigChan:
-			a.logger.Infof("收到信号 %v，开始停止Agent", sig)
-		case <-a.ctx.Done():
-			a.logger.Info("Agent上下文已取消")
-		}
-		
-		// 停止Agent
-		done <- a.Stop()
-	}()
-
-	// 等待停止完成或超时
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(10 * time.Second):
-		a.logger.Warn("停止超时，强制退出")
-		return fmt.Errorf("停止超时")
-	}
+	// 停止Agent
+	return a.Stop()
 }
 
 // metricsReporter 指标上报协程
 func (a *Agent) metricsReporter() {
-	defer a.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			a.logger.Errorf("指标上报协程panic: %v", r)
+		}
+		a.wg.Done()
+	}()
 
-	ticker := time.NewTicker(a.config.Monitor.ReportInterval)
+	// 验证上报间隔
+	interval := a.config.Monitor.ReportInterval
+	if interval <= 0 {
+		a.logger.Warn("上报间隔无效，使用默认值30秒")
+		interval = 30 * time.Second
+	}
+
+	a.logger.Debugf("指标上报间隔: %v", interval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-a.ctx.Done():
+			a.logger.Debug("指标上报协程收到停止信号")
 			return
 		case <-ticker.C:
 			a.reportMetrics()
@@ -232,8 +236,42 @@ func (a *Agent) metricsReporter() {
 
 // reportMetrics 上报指标
 func (a *Agent) reportMetrics() {
+	defer func() {
+		if r := recover(); r != nil {
+			a.logger.Errorf("上报指标时panic: %v", r)
+		}
+	}()
+
 	// 获取当前指标
 	metrics := a.collector.GetMetrics()
+	a.logger.Debugf("获取到指标数据: 连接数=%d, 发送字节=%d, IP数量=%d, 域名数量=%d", 
+		metrics.TotalConnections, metrics.TotalBytesSent, 
+		len(metrics.IPsAccessed), len(metrics.DomainsAccessed))
+
+	// 打印一些具体的IP和域名统计
+	if len(metrics.IPsAccessed) > 0 {
+		a.logger.Debug("IP访问统计:")
+		count := 0
+		for ip, visits := range metrics.IPsAccessed {
+			a.logger.Debugf("  %s: %d次", ip, visits)
+			count++
+			if count >= 5 { // 只打印前5个
+				break
+			}
+		}
+	}
+	
+	if len(metrics.DomainsAccessed) > 0 {
+		a.logger.Debug("域名访问统计:")
+		count := 0
+		for domain, visits := range metrics.DomainsAccessed {
+			a.logger.Debugf("  %s: %d次", domain, visits)
+			count++
+			if count >= 5 { // 只打印前5个
+				break
+			}
+		}
+	}
 
 	// 上报指标
 	if err := a.reporter.Report(metrics); err != nil {
@@ -245,7 +283,12 @@ func (a *Agent) reportMetrics() {
 
 // healthChecker 健康检查协程
 func (a *Agent) healthChecker() {
-	defer a.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			a.logger.Errorf("健康检查协程panic: %v", r)
+		}
+		a.wg.Done()
+	}()
 
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -253,6 +296,7 @@ func (a *Agent) healthChecker() {
 	for {
 		select {
 		case <-a.ctx.Done():
+			a.logger.Debug("健康检查协程收到停止信号")
 			return
 		case <-ticker.C:
 			a.performHealthCheck()

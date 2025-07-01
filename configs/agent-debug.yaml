@@ -1,0 +1,35 @@
+# Agent调试配置文件
+server:
+  host: "localhost"
+  port: 8080
+
+monitor:
+  interface: "en0"  # 明确指定主网络接口
+  protocols:
+    - "tcp"
+    - "udp"
+    - "http"
+    - "https"
+    - "dns"
+  report_interval: "5s"   # 更短的上报间隔
+  buffer_size: 100        # 更小的缓冲区
+  filters:
+    ignore_localhost: false  # 不忽略本地流量，便于调试
+    ignore_ports: []         # 不忽略任何端口
+    ignore_ips: []           # 不忽略任何IP
+    only_domains: []
+
+reporter:
+  server_url: "http://localhost:8080/api/v1/metrics"
+  timeout: "5s"
+  retry_count: 2
+  retry_delay: "2s"
+  batch_size: 5     # 更小的批次
+  enable_tls: false
+  tls_cert_path: ""
+  tls_key_path: ""
+
+log:
+  level: "debug"    # 调试级别日志
+  format: "json"
+  output: "stdout"

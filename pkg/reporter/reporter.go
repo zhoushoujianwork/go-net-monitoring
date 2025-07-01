@@ -99,13 +99,32 @@ func (r *Reporter) Start() error {
 	r.logger.Info("启动数据上报器")
 	
 	// 启动批处理协程
+	r.logger.Debug("启动批处理协程...")
 	r.wg.Add(1)
-	go r.batchProcessor()
+	go func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				r.logger.Errorf("批处理协程panic: %v", rec)
+			}
+			r.wg.Done()
+		}()
+		r.batchProcessor()
+	}()
 	
 	// 启动上报协程
+	r.logger.Debug("启动上报协程...")
 	r.wg.Add(1)
-	go r.reportProcessor()
+	go func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				r.logger.Errorf("上报协程panic: %v", rec)
+			}
+			r.wg.Done()
+		}()
+		r.reportProcessor()
+	}()
 	
+	r.logger.Debug("上报器所有协程启动完成")
 	return nil
 }
 
@@ -113,10 +132,25 @@ func (r *Reporter) Start() error {
 func (r *Reporter) Stop() error {
 	r.logger.Info("停止数据上报器")
 	
+	// 取消上下文
 	r.cancel()
+	
+	// 关闭队列
 	close(r.queue)
 	
-	r.wg.Wait()
+	// 等待所有goroutine结束，但设置超时
+	done := make(chan struct{})
+	go func() {
+		r.wg.Wait()
+		close(done)
+	}()
+	
+	select {
+	case <-done:
+		r.logger.Debug("所有上报器goroutine已结束")
+	case <-time.After(3 * time.Second):
+		r.logger.Warn("等待上报器goroutine结束超时")
+	}
 	
 	return nil
 }
@@ -139,7 +173,7 @@ func (r *Reporter) Report(metrics common.NetworkMetrics) error {
 func (r *Reporter) batchProcessor() {
 	defer r.wg.Done()
 	
-	ticker := time.NewTicker(10 * time.Second) // 每10秒检查一次批处理
+	ticker := time.NewTicker(5 * time.Second) // 减少检查间隔
 	defer ticker.Stop()
 	
 	for {
@@ -147,11 +181,20 @@ func (r *Reporter) batchProcessor() {
 		case <-r.ctx.Done():
 			// 处理剩余的批数据
 			if len(r.batch) > 0 {
+				r.logger.Debug("处理剩余的批数据")
 				r.sendBatch()
 			}
 			return
 			
-		case metrics := <-r.queue:
+		case metrics, ok := <-r.queue:
+			if !ok {
+				// 队列已关闭，处理剩余数据后退出
+				if len(r.batch) > 0 {
+					r.sendBatch()
+				}
+				return
+			}
+			
 			r.mu.Lock()
 			r.batch = append(r.batch, metrics)
 			shouldSend := len(r.batch) >= r.config.BatchSize
@@ -208,13 +251,17 @@ func (r *Reporter) sendBatch() {
 	r.mu.Unlock()
 	
 	r.updateBatchSize(len(batch))
+	r.logger.Debugf("发送批数据，包含 %d 个指标", len(batch))
+	
+	// 合并所有指标数据
+	mergedMetrics := r.mergeMetrics(batch)
 	
 	// 创建上报请求
 	request := common.ReportRequest{
 		AgentID:   r.agentID,
 		Hostname:  r.hostname,
 		Timestamp: time.Now(),
-		Metrics:   batch[0], // 简化处理，实际应该支持批量
+		Metrics:   mergedMetrics,
 	}
 	
 	// 发送请求
@@ -228,6 +275,88 @@ func (r *Reporter) sendBatch() {
 		r.logger.Debug("成功发送批数据")
 		r.updateStats(true, "")
 	}
+}
+
+// mergeMetrics 合并多个指标数据
+func (r *Reporter) mergeMetrics(batch []common.NetworkMetrics) common.NetworkMetrics {
+	if len(batch) == 0 {
+		return common.NetworkMetrics{}
+	}
+	
+	if len(batch) == 1 {
+		return batch[0]
+	}
+	
+	// 合并所有指标
+	merged := common.NetworkMetrics{
+		Timestamp:        time.Now(),
+		HostID:           r.agentID,
+		Hostname:         r.hostname,
+		DomainsAccessed:  make(map[string]uint64),
+		IPsAccessed:      make(map[string]uint64),
+		ProtocolStats:    make(map[string]uint64),
+		PortStats:        make(map[int]uint64),
+		DomainTraffic:    make(map[string]*common.DomainTrafficStats),
+	}
+	
+	for _, metrics := range batch {
+		// 合并基础统计
+		merged.TotalConnections += metrics.TotalConnections
+		merged.TotalBytesSent += metrics.TotalBytesSent
+		merged.TotalBytesRecv += metrics.TotalBytesRecv
+		merged.TotalPacketsSent += metrics.TotalPacketsSent
+		merged.TotalPacketsRecv += metrics.TotalPacketsRecv
+		
+		// 合并域名统计
+		for domain, count := range metrics.DomainsAccessed {
+			merged.DomainsAccessed[domain] += count
+		}
+		
+		// 合并IP统计
+		for ip, count := range metrics.IPsAccessed {
+			merged.IPsAccessed[ip] += count
+		}
+		
+		// 合并协议统计
+		for protocol, count := range metrics.ProtocolStats {
+			merged.ProtocolStats[protocol] += count
+		}
+		
+		// 合并端口统计
+		for port, count := range metrics.PortStats {
+			merged.PortStats[port] += count
+		}
+		
+		// 合并域名流量统计
+		for domain, stats := range metrics.DomainTraffic {
+			if stats == nil {
+				continue
+			}
+			
+			if merged.DomainTraffic[domain] == nil {
+				merged.DomainTraffic[domain] = &common.DomainTrafficStats{
+					Domain: domain,
+				}
+			}
+			
+			mergedStats := merged.DomainTraffic[domain]
+			mergedStats.BytesSent += stats.BytesSent
+			mergedStats.BytesReceived += stats.BytesReceived
+			mergedStats.PacketsSent += stats.PacketsSent
+			mergedStats.PacketsRecv += stats.PacketsRecv
+			mergedStats.Connections += stats.Connections
+			
+			// 使用最新的访问时间
+			if stats.LastAccess.After(mergedStats.LastAccess) {
+				mergedStats.LastAccess = stats.LastAccess
+			}
+		}
+	}
+	
+	r.logger.Debugf("合并后的指标: 域名=%d, IP=%d, 协议=%d, 域名流量=%d", 
+		len(merged.DomainsAccessed), len(merged.IPsAccessed), len(merged.ProtocolStats), len(merged.DomainTraffic))
+	
+	return merged
 }
 
 // sendRequest 发送HTTP请求

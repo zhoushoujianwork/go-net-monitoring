@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"go-net-monitoring/internal/common"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,9 +20,13 @@ type Metrics struct {
 	NetworkDomainsAccessedTotal *prometheus.CounterVec
 	NetworkIPsAccessedTotal     *prometheus.CounterVec
 	
+	// 按域名的流量指标
+	NetworkDomainBytesSentTotal     *prometheus.CounterVec
+	NetworkDomainBytesReceivedTotal *prometheus.CounterVec
+	NetworkDomainConnectionsTotal   *prometheus.CounterVec
+	
 	// 协议统计指标
 	NetworkProtocolStats *prometheus.CounterVec
-	NetworkPortStats     *prometheus.CounterVec
 	
 	// 连接状态指标
 	NetworkActiveConnections *prometheus.GaugeVec
@@ -103,6 +106,31 @@ func NewMetrics() *Metrics {
 			[]string{"ip", "host"},
 		),
 		
+		// 按域名的流量指标
+		NetworkDomainBytesSentTotal: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "network_domain_bytes_sent_total",
+				Help: "Total bytes sent to each domain",
+			},
+			[]string{"domain", "host"},
+		),
+		
+		NetworkDomainBytesReceivedTotal: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "network_domain_bytes_received_total",
+				Help: "Total bytes received from each domain",
+			},
+			[]string{"domain", "host"},
+		),
+		
+		NetworkDomainConnectionsTotal: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "network_domain_connections_total",
+				Help: "Total connections to each domain",
+			},
+			[]string{"domain", "host"},
+		),
+		
 		// 协议统计指标
 		NetworkProtocolStats: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -110,14 +138,6 @@ func NewMetrics() *Metrics {
 				Help: "Network protocol statistics",
 			},
 			[]string{"protocol", "host"},
-		),
-		
-		NetworkPortStats: promauto.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "network_port_stats_total",
-				Help: "Network port statistics",
-			},
-			[]string{"port", "protocol", "host"},
 		),
 		
 		// 连接状态指标
@@ -206,9 +226,26 @@ func NewMetrics() *Metrics {
 func (m *Metrics) UpdateNetworkMetrics(metrics common.NetworkMetrics) {
 	hostname := metrics.Hostname
 	
+	// 添加调试日志
+	// 更新网络指标
+	m.NetworkConnectionsTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalConnections))
+	m.NetworkBytesSentTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalBytesSent))
+	m.NetworkBytesRecvTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalBytesRecv))
+	m.NetworkPacketsSentTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalPacketsSent))
+	m.NetworkPacketsRecvTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalPacketsRecv))
+
 	// 更新域名访问统计
 	for domain, count := range metrics.DomainsAccessed {
 		m.NetworkDomainsAccessedTotal.WithLabelValues(domain, hostname).Add(float64(count))
+	}
+	
+	// 更新域名流量统计
+	for domain, stats := range metrics.DomainTraffic {
+		if stats != nil {
+			m.NetworkDomainBytesSentTotal.WithLabelValues(domain, hostname).Add(float64(stats.BytesSent))
+			m.NetworkDomainBytesReceivedTotal.WithLabelValues(domain, hostname).Add(float64(stats.BytesReceived))
+			m.NetworkDomainConnectionsTotal.WithLabelValues(domain, hostname).Add(float64(stats.Connections))
+		}
 	}
 	
 	// 更新IP访问统计
@@ -219,12 +256,6 @@ func (m *Metrics) UpdateNetworkMetrics(metrics common.NetworkMetrics) {
 	// 更新协议统计
 	for protocol, count := range metrics.ProtocolStats {
 		m.NetworkProtocolStats.WithLabelValues(protocol, hostname).Add(float64(count))
-	}
-	
-	// 更新端口统计
-	for port, count := range metrics.PortStats {
-		portStr := fmt.Sprintf("%d", port)
-		m.NetworkPortStats.WithLabelValues(portStr, "tcp", hostname).Add(float64(count))
 	}
 }
 
