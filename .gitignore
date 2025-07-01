@@ -48,12 +48,19 @@ logs/
 configs/*local*
 configs/*secret*
 configs/*private*
+configs/*debug*
 
-# Test files
+# Test files and scripts
 test_*.sh
 debug_*.go
 debug_*.sh
+*_test.go
+*test*.go
+TEST_*.md
+DOMAIN_TEST.md
 
 # Build artifacts
 build/
 target/
+coverage.out
+coverage.html
