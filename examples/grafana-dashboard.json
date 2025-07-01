@@ -1,0 +1,118 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "网络流量监控",
+    "tags": ["network", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "网络连接总数",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(network_connections_total[5m]))",
+            "legendFormat": "连接/秒"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "网络流量",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(network_bytes_sent_total[5m])",
+            "legendFormat": "发送 - {{host}}"
+          },
+          {
+            "expr": "rate(network_bytes_received_total[5m])",
+            "legendFormat": "接收 - {{host}}"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "bytes"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "热门域名访问",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (domain) (rate(network_domains_accessed_total[5m])))",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "协议分布",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (protocol) (rate(network_protocol_stats_total[5m]))",
+            "legendFormat": "{{protocol}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "Agent状态",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "agent_uptime_seconds",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 16
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

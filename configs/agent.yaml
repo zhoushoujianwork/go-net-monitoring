@@ -1,0 +1,41 @@
+# Agent配置文件
+server:
+  host: "localhost"
+  port: 8080
+
+monitor:
+  interface: "en0"  # 明确指定主网络接口
+  protocols:
+    - "tcp"
+    - "udp"
+    - "http"
+    - "https"
+    - "dns"
+  report_interval: "30s"
+  buffer_size: 1000
+  filters:
+    ignore_localhost: true
+    ignore_ports:
+      - 22    # SSH
+      - 53    # DNS
+      - 123   # NTP
+    ignore_ips:
+      - "127.0.0.1"
+      - "::1"
+      - "192.168.17.92"  # 你的本机IP
+    only_domains: []  # 如果指定，只监控这些域名
+
+reporter:
+  server_url: "http://localhost:8080/api/v1/metrics"
+  timeout: "10s"
+  retry_count: 3
+  retry_delay: "5s"
+  batch_size: 100
+  enable_tls: false
+  tls_cert_path: ""
+  tls_key_path: ""
+
+log:
+  level: "debug"      # debug, info, warn, error
+  format: "json"     # json, text
+  output: "stdout"   # stdout, stderr, 或文件路径

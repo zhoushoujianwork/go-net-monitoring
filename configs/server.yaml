@@ -1,0 +1,24 @@
+# Server配置文件
+http:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "30s"
+  write_timeout: "30s"
+  enable_tls: false
+  tls_cert_path: ""
+  tls_key_path: ""
+
+metrics:
+  path: "/metrics"
+  enabled: true
+  interval: "15s"
+
+storage:
+  type: "memory"      # memory, redis (未来扩展)
+  ttl: "1h"          # 数据保留时间
+  max_entries: 10000  # 最大条目数
+
+log:
+  level: "info"      # debug, info, warn, error
+  format: "json"     # json, text
+  output: "stdout"   # stdout, stderr, 或文件路径
