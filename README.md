@@ -44,6 +44,35 @@
 
 ## 🚀 快速开始
 
+### 一键安装 (推荐)
+
+**安装 Agent (网络监控代理):**
+```bash
+curl -sS https://raw.githubusercontent.com/your-username/go-net-monitoring/main/scripts/quick-install.sh | bash -s agent
+```
+
+**安装 Server (数据聚合服务器):**
+```bash
+curl -sS https://raw.githubusercontent.com/your-username/go-net-monitoring/main/scripts/quick-install.sh | bash -s server
+```
+
+**交互式安装 (选择组件):**
+```bash
+curl -sS https://raw.githubusercontent.com/your-username/go-net-monitoring/main/scripts/quick-install.sh | bash
+```
+
+### 通过 webinstall.dev 安装
+
+**安装 Agent:**
+```bash
+curl -sS https://webinstall.dev/go-net-monitoring-agent | bash
+```
+
+**安装 Server:**
+```bash
+curl -sS https://webinstall.dev/go-net-monitoring-server | bash
+```
+
 ### 环境要求
 
 - Go 1.19+
