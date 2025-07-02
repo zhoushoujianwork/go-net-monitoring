@@ -20,7 +20,7 @@ storage:
   
   # Redis配置
   redis:
-    host: "localhost"
+    host: "redis"     # Docker环境中使用服务名
     port: 6379
     password: ""      # Redis密码，如果有的话
     db: 0            # Redis数据库编号

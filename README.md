@@ -92,20 +92,28 @@ docker run -d \
   zhoushoujian/go-net-monitoring:latest
 ```
 
-**使用Docker Compose:**
+**使用Docker Compose (推荐):**
+
+基于 `configs/` 目录下的 YAML 配置文件，提供简化的部署方式：
+
 ```bash
-# 使用内存存储 (默认)
-curl -O https://raw.githubusercontent.com/zhoushoujian/go-net-monitoring/main/docker-compose.yml
+# 默认部署 (Redis 存储，推荐)
 docker-compose up -d
 
-# 使用Redis存储
-docker-compose --profile redis up -d
+# 内存存储模式 (备选方案)
+docker-compose --profile memory up -d server-memory agent
+
+# 完整监控栈 (包含 Prometheus + Grafana)
+docker-compose --profile monitoring up -d
 ```
 
-**使用Redis存储的优势:**
-- 数据持久化，Server重启不丢失数据
-- 支持多个Server实例共享数据
-- 更好的性能和扩展性
+**服务端口：**
+- Server (Redis): http://localhost:8080
+- Server (Memory): http://localhost:8081  
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/admin123)
+
+详细使用说明请参考：[Docker Compose 使用指南](docs/docker-compose-usage.md)
 
 ### Kubernetes部署
 

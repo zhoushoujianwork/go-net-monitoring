@@ -33,11 +33,15 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # 运行时镜像
 FROM alpine:3.18
 
-# 安装运行时依赖
+# 安装运行时依赖和网络监控工具
 RUN apk add --no-cache \
     ca-certificates \
     libpcap \
     tzdata \
+    tcpdump \
+    iproute2 \
+    net-tools \
+    procps \
     && rm -rf /var/cache/apk/*
 
 # 创建非root用户

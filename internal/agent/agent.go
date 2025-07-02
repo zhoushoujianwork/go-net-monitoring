@@ -1,10 +1,14 @@
 package agent
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -93,6 +97,11 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 // Start 启动Agent
 func (a *Agent) Start() error {
 	a.logger.Info("启动网络监控Agent")
+
+	// 显示网络接口信息
+	if err := a.printNetworkInterfaces(); err != nil {
+		a.logger.WithError(err).Warn("显示网络接口信息失败")
+	}
 
 	// 启动收集器
 	a.logger.Debug("正在启动收集器...")
@@ -385,4 +394,119 @@ func setupLogger(logger *logrus.Logger, cfg *config.LogConfig) error {
 	}
 
 	return nil
+}
+
+// printNetworkInterfaces 打印网络接口信息
+func (a *Agent) printNetworkInterfaces() error {
+	a.logger.Info("=== 网络接口信息 ===")
+	
+	// 获取所有网络接口
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return err
+	}
+	
+	a.logger.Infof("发现 %d 个网络接口:", len(interfaces))
+	
+	var targetInterface *net.Interface
+	for _, iface := range interfaces {
+		status := "DOWN"
+		if iface.Flags&net.FlagUp != 0 {
+			status = "UP"
+		}
+		
+		a.logger.Infof("  %s: %s (%s) - %s", iface.Name, iface.HardwareAddr, status, iface.Flags)
+		
+		// 获取IP地址
+		addrs, err := iface.Addrs()
+		if err == nil && len(addrs) > 0 {
+			for _, addr := range addrs {
+				a.logger.Infof("    IP: %s", addr.String())
+			}
+		}
+		
+		// 检查是否是目标接口
+		if iface.Name == a.config.Monitor.Interface {
+			targetInterface = &iface
+		}
+	}
+	
+	a.logger.Infof("目标监控接口: %s", a.config.Monitor.Interface)
+	if targetInterface != nil {
+		a.logger.Infof("✅ 接口 %s 存在且可用", targetInterface.Name)
+		a.logger.Infof("   MAC地址: %s", targetInterface.HardwareAddr)
+		a.logger.Infof("   状态: %s", targetInterface.Flags)
+		
+		// 获取接口统计信息
+		if stats, err := a.getInterfaceStats(a.config.Monitor.Interface); err == nil {
+			a.logger.Infof("   当前统计: 接收 %d 字节, 发送 %d 字节", stats.BytesReceived, stats.BytesSent)
+		}
+	} else {
+		a.logger.Warnf("❌ 接口 %s 不存在", a.config.Monitor.Interface)
+		a.logger.Info("可用接口列表:")
+		for _, iface := range interfaces {
+			if iface.Flags&net.FlagUp != 0 && iface.Name != "lo" {
+				a.logger.Infof("  - %s", iface.Name)
+			}
+		}
+	}
+	
+	return nil
+}
+// NetworkStats 网络统计信息
+type NetworkStats struct {
+	Interface       string
+	BytesReceived   uint64
+	BytesSent       uint64
+	PacketsReceived uint64
+	PacketsSent     uint64
+	Timestamp       time.Time
+}
+
+// getInterfaceStats 获取接口统计信息
+func (a *Agent) getInterfaceStats(interfaceName string) (*NetworkStats, error) {
+	file, err := os.Open("/proc/net/dev")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	
+	// 跳过前两行（标题行）
+	scanner.Scan()
+	scanner.Scan()
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 17 {
+			continue
+		}
+
+		ifaceName := strings.TrimSuffix(parts[0], ":")
+		if ifaceName != interfaceName {
+			continue
+		}
+
+		bytesReceived, _ := strconv.ParseUint(parts[1], 10, 64)
+		packetsReceived, _ := strconv.ParseUint(parts[2], 10, 64)
+		bytesSent, _ := strconv.ParseUint(parts[9], 10, 64)
+		packetsSent, _ := strconv.ParseUint(parts[10], 10, 64)
+
+		return &NetworkStats{
+			Interface:       ifaceName,
+			BytesReceived:   bytesReceived,
+			BytesSent:       bytesSent,
+			PacketsReceived: packetsReceived,
+			PacketsSent:     packetsSent,
+			Timestamp:       time.Now(),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("接口 %s 未找到", interfaceName)
 }

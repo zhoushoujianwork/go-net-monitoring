@@ -64,5 +64,4 @@ build/
 target/
 coverage.out
 coverage.html
-server
-agent
+data/

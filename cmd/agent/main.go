@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
+
+	"go-net-monitoring/internal/agent"
+	"go-net-monitoring/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -65,76 +66,24 @@ func main() {
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
-	fmt.Println("启动网络监控Agent...")
-	
-	if debugMode {
-		fmt.Println("Debug模式已启用")
-	}
-	
-	// 检查是否有root权限
-	if os.Geteuid() != 0 {
-		fmt.Println("警告: Agent需要root权限来监控网络流量")
-		fmt.Println("请使用 sudo 运行此程序")
-		return fmt.Errorf("需要root权限")
-	}
-	
-	// 检查配置文件是否存在
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return fmt.Errorf("配置文件不存在: %s", configPath)
-	}
-	
-	fmt.Printf("使用配置文件: %s\n", configPath)
-	
-	// 由于pcap相关的包会导致程序卡死，我们使用一个替代方案
-	// 可以通过以下方式之一来实现实际的网络监控：
-	
-	// 方案1: 调用外部工具
-	return runWithExternalTool()
-	
-	// 方案2: 使用不依赖pcap的网络监控方法
-	// return runWithAlternativeMethod()
-}
-
-// runWithExternalTool 使用外部工具进行网络监控
-func runWithExternalTool() error {
-	fmt.Println("使用外部工具进行网络监控...")
-	
-	// 检查是否有tcpdump或其他网络监控工具
-	tools := []string{"tcpdump", "netstat", "ss"}
-	var availableTool string
-	
-	for _, tool := range tools {
-		if _, err := exec.LookPath(tool); err == nil {
-			availableTool = tool
-			break
-		}
-	}
-	
-	if availableTool == "" {
-		return fmt.Errorf("未找到可用的网络监控工具 (tcpdump, netstat, ss)")
-	}
-	
-	fmt.Printf("找到可用工具: %s\n", availableTool)
-	
-	if debugMode {
-		fmt.Printf("Debug模式: 使用工具 %s 进行网络监控\n", availableTool)
-		fmt.Println("Debug模式: 详细日志已启用")
-	}
-	
-	fmt.Println("Agent运行中，按Ctrl+C停止...")
-	
-	// 这里可以实现实际的监控逻辑
-	// 例如定期调用netstat或ss来获取网络连接信息
-	
-	// 模拟运行
-	select {}
-}
-
-// getExecutableDir 获取可执行文件所在目录
-func getExecutableDir() (string, error) {
-	ex, err := os.Executable()
+	// 加载配置
+	cfg, err := config.SimpleLoadAgentConfig(configPath)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("加载配置失败: %w", err)
 	}
-	return filepath.Dir(ex), nil
+	
+	// 如果启用了debug模式，设置日志级别
+	if debugMode {
+		cfg.Log.Level = "debug"
+		cfg.Log.Format = "text"  // debug模式使用text格式更易读
+	}
+
+	// 创建Agent
+	agent, err := agent.NewAgent(cfg)
+	if err != nil {
+		return fmt.Errorf("创建Agent失败: %w", err)
+	}
+
+	// 运行Agent
+	return agent.Run()
 }

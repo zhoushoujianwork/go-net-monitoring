@@ -1,10 +1,10 @@
 # Agent配置文件
 server:
-  host: "localhost"
+  host: "localhost"    # host网络模式下使用localhost
   port: 8080
 
 monitor:
-  interface: "en0"  # 明确指定主网络接口
+  interface: "eth0"  # Docker容器中通常使用eth0
   protocols:
     - "tcp"
     - "udp"
@@ -25,7 +25,7 @@ monitor:
     only_domains: []  # 如果指定，只监控这些域名
 
 reporter:
-  server_url: "http://localhost:8080/api/v1/metrics"
+  server_url: "http://localhost:8080/api/v1/metrics"  # host网络模式下使用localhost
   timeout: "10s"
   retry_count: 3
   retry_delay: "5s"

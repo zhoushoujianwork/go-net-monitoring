@@ -227,12 +227,12 @@ func (m *Metrics) UpdateNetworkMetrics(metrics common.NetworkMetrics) {
 	hostname := metrics.Hostname
 	
 	// 添加调试日志
-	// 更新网络指标
-	m.NetworkConnectionsTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalConnections))
-	m.NetworkBytesSentTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalBytesSent))
-	m.NetworkBytesRecvTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalBytesRecv))
-	m.NetworkPacketsSentTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalPacketsSent))
-	m.NetworkPacketsRecvTotal.WithLabelValues("total", hostname).Add(float64(metrics.TotalPacketsRecv))
+	// 更新网络指标 - 使用正确的标签数量
+	m.NetworkConnectionsTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalConnections))
+	m.NetworkBytesSentTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalBytesSent))
+	m.NetworkBytesRecvTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalBytesRecv))
+	m.NetworkPacketsSentTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalPacketsSent))
+	m.NetworkPacketsRecvTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalPacketsRecv))
 
 	// 更新域名访问统计
 	for domain, count := range metrics.DomainsAccessed {

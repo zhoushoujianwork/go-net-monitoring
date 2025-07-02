@@ -1,35 +1,12 @@
-# Server配置文件
-http:
+server:
   host: "0.0.0.0"
   port: 8080
-  read_timeout: "30s"
-  write_timeout: "30s"
-  enable_tls: false
-  tls_cert_path: ""
-  tls_key_path: ""
-  debug: false       # 启用debug模式，会打印所有注册的路由
-
-metrics:
-  path: "/metrics"
-  enabled: true
-  interval: "15s"
 
 storage:
-  type: "memory"      # memory, redis
-  # Server作为实时指标聚合服务，不设置TTL限制
-  # 历史数据存储由Prometheus负责
-  max_entries: 50000  # 增加最大条目数以支持更多指标
-  
-  # Redis配置 (当type为redis时使用)
-  redis:
-    host: "localhost"
-    port: 6379
-    password: ""      # Redis密码，如果有的话
-    db: 0            # Redis数据库编号
-    pool_size: 10    # 连接池大小
-    timeout: "5s"    # 连接超时时间
+  type: "memory"
+  retention: "24h"
 
 log:
-  level: "info"      # debug, info, warn, error
-  format: "json"     # json, text
-  output: "stdout"   # stdout, stderr, 或文件路径
+  level: "info"
+  format: "json"
+  output: "stdout"
