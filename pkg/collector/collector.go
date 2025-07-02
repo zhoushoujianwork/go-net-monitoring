@@ -52,6 +52,30 @@ type NetworkMetrics struct {
 	LastUpdate       time.Time
 }
 
+// NewTestCollector 创建测试收集器（用于测试环境）
+func NewTestCollector(cfg *config.MonitorConfig, logger *logrus.Logger) (*Collector, error) {
+	logger.Info("创建测试收集器")
+	
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	collector := &Collector{
+		config:      cfg,
+		logger:      logger,
+		packetChan:  make(chan gopacket.Packet, cfg.BufferSize),
+		eventChan:   make(chan common.NetworkEvent, cfg.BufferSize),
+		metrics:     NewNetworkMetrics(),
+		dnsCache:    NewDNSCache(),
+		connTracker: NewConnectionTracker(),
+		localIPs:    make(map[string]bool),
+		ctx:         ctx,
+		cancel:      cancel,
+	}
+	
+	// 测试模式下不需要真实的网络接口，handle保持为nil
+	logger.Info("测试收集器创建成功")
+	return collector, nil
+}
+
 // NewCollector 创建新的收集器
 func NewCollector(cfg *config.MonitorConfig, logger *logrus.Logger) (*Collector, error) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -225,6 +249,15 @@ func (c *Collector) Stop() error {
 // capturePackets 捕获数据包
 func (c *Collector) capturePackets() {
 	defer c.wg.Done()
+
+	// 测试模式下handle为nil，不进行真实的数据包捕获
+	if c.handle == nil {
+		c.logger.Info("测试模式：跳过数据包捕获")
+		// 在测试模式下，我们只是等待停止信号
+		<-c.ctx.Done()
+		c.logger.Debug("测试模式：收到停止信号，退出数据包捕获")
+		return
+	}
 
 	packetSource := gopacket.NewPacketSource(c.handle, c.handle.LinkType())
 
