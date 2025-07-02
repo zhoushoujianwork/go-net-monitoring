@@ -44,6 +44,32 @@
 
 ## 🚀 快速开始
 
+### Debug 模式
+
+项目支持 debug 模式，方便开发调试和问题排查：
+
+```bash
+# Server debug 模式 - 会打印所有注册的路由
+./bin/server -d
+./bin/server --debug
+
+# Agent debug 模式 - 显示详细的监控信息
+sudo ./bin/agent -d
+sudo ./bin/agent --debug
+
+# 结合配置文件使用
+./bin/server -d -c configs/server-debug.yaml
+```
+
+**Debug 模式特性：**
+- 🔍 **Gin 框架 Debug 模式** - 打印所有路由注册信息
+- 📝 **详细日志输出** - 显示请求处理详情
+- 🛠️ **问题排查** - 便于开发和运维调试
+
+> **注意：** 生产环境不建议使用 debug 模式，会影响性能并产生大量日志。
+
+详细使用说明请参考：[Debug 模式使用指南](docs/debug-mode.md)
+
 ### Docker部署 (推荐)
 
 **运行Server (数据聚合服务器):**

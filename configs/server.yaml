@@ -7,6 +7,7 @@ http:
   enable_tls: false
   tls_cert_path: ""
   tls_key_path: ""
+  debug: false       # 启用debug模式，会打印所有注册的路由
 
 metrics:
   path: "/metrics"

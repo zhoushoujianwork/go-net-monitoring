@@ -74,6 +74,7 @@ type HTTPConfig struct {
 	EnableTLS    bool          `yaml:"enable_tls"`
 	TLSCertPath  string        `yaml:"tls_cert_path"`
 	TLSKeyPath   string        `yaml:"tls_key_path"`
+	Debug        bool          `yaml:"debug"`        // Debug模式
 }
 
 // MetricsConfig Prometheus指标配置
@@ -243,6 +244,7 @@ func setServerDefaults() {
 	viper.SetDefault("http.read_timeout", 30*time.Second)
 	viper.SetDefault("http.write_timeout", 30*time.Second)
 	viper.SetDefault("http.enable_tls", false)
+	viper.SetDefault("http.debug", false)
 	
 	viper.SetDefault("metrics.path", "/metrics")
 	viper.SetDefault("metrics.enabled", true)

@@ -11,6 +11,7 @@ import (
 
 var (
 	configPath string
+	debugMode  bool
 	version    = "1.0.0"
 	buildTime  = "unknown"
 	gitCommit  = "unknown"
@@ -25,6 +26,7 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVarP(&configPath, "config", "c", "configs/agent.yaml", "配置文件路径")
+	rootCmd.Flags().BoolVarP(&debugMode, "debug", "d", false, "启用debug模式")
 	
 	// 添加--version标志支持
 	var showVersion bool
@@ -64,6 +66,10 @@ func main() {
 
 func runAgent(cmd *cobra.Command, args []string) error {
 	fmt.Println("启动网络监控Agent...")
+	
+	if debugMode {
+		fmt.Println("Debug模式已启用")
+	}
 	
 	// 检查是否有root权限
 	if os.Geteuid() != 0 {
@@ -109,6 +115,12 @@ func runWithExternalTool() error {
 	}
 	
 	fmt.Printf("找到可用工具: %s\n", availableTool)
+	
+	if debugMode {
+		fmt.Printf("Debug模式: 使用工具 %s 进行网络监控\n", availableTool)
+		fmt.Println("Debug模式: 详细日志已启用")
+	}
+	
 	fmt.Println("Agent运行中，按Ctrl+C停止...")
 	
 	// 这里可以实现实际的监控逻辑

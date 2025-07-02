@@ -10,14 +10,12 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
       - LOG_LEVEL=info
-      - STORAGE_TYPE=memory  # 可选: memory, redis
+      - STORAGE_TYPE=memory  # 改为memory，因为redis服务默认不启动
       - REDIS_HOST=redis     # 当STORAGE_TYPE=redis时使用
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
       # 移除STORAGE_RETENTION - Server作为实时指标服务，不应有时间限制
-    depends_on:
-      - redis
     ports:
       - "8080:8080"
     volumes:
@@ -47,20 +45,6 @@ services:
       - netmon
     profiles:
       - redis
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - netmon
 
   # 网络监控代理
   agent:

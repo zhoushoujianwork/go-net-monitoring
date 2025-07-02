@@ -12,6 +12,7 @@ import (
 
 var (
 	configPath string
+	debugMode  bool
 	version    = "1.0.0"
 	buildTime  = "unknown"
 	gitCommit  = "unknown"
@@ -26,6 +27,7 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVarP(&configPath, "config", "c", "configs/server.yaml", "配置文件路径")
+	rootCmd.Flags().BoolVarP(&debugMode, "debug", "d", false, "启用debug模式")
 	
 	// 添加--version标志支持
 	var showVersion bool
@@ -68,6 +70,12 @@ func runServer(cmd *cobra.Command, args []string) error {
 	cfg, err := config.SimpleLoadServerConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("加载配置失败: %w", err)
+	}
+
+	// 如果命令行指定了debug模式，覆盖配置文件设置
+	if debugMode {
+		cfg.HTTP.Debug = true
+		fmt.Println("Debug模式已启用")
 	}
 
 	// 创建Server
