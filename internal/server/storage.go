@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"go-net-monitoring/internal/config"
 )
 
@@ -160,5 +163,135 @@ func (ms *MemoryStorage) cleanup() {
 
 	for _, key := range expiredKeys {
 		delete(ms.data, key)
+	}
+}
+
+// RedisStorage Redis存储实现
+type RedisStorage struct {
+	client *redis.Client
+	config *config.StorageConfig
+	ctx    context.Context
+}
+
+// NewRedisStorage 创建Redis存储
+func NewRedisStorage(cfg *config.StorageConfig) (*RedisStorage, error) {
+	// 创建Redis客户端
+	rdb := redis.NewClient(&redis.Options{
+		Addr:         fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
+		DialTimeout:  cfg.Redis.Timeout,
+		ReadTimeout:  cfg.Redis.Timeout,
+		WriteTimeout: cfg.Redis.Timeout,
+	})
+
+	ctx := context.Background()
+	
+	// 测试连接
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("连接Redis失败: %w", err)
+	}
+
+	storage := &RedisStorage{
+		client: rdb,
+		config: cfg,
+		ctx:    ctx,
+	}
+
+	return storage, nil
+}
+
+// Store 存储数据到Redis
+func (rs *RedisStorage) Store(key string, value interface{}) error {
+	// 序列化数据
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("序列化数据失败: %w", err)
+	}
+
+	// 存储到Redis
+	if rs.config.TTL > 0 {
+		// 设置过期时间
+		return rs.client.Set(rs.ctx, key, data, rs.config.TTL).Err()
+	} else {
+		// 永不过期
+		return rs.client.Set(rs.ctx, key, data, 0).Err()
+	}
+}
+
+// Get 从Redis获取数据
+func (rs *RedisStorage) Get(key string) (interface{}, error) {
+	data, err := rs.client.Get(rs.ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, fmt.Errorf("key not found: %s", key)
+		}
+		return nil, fmt.Errorf("获取数据失败: %w", err)
+	}
+
+	// 反序列化数据
+	var value interface{}
+	if err := json.Unmarshal([]byte(data), &value); err != nil {
+		return nil, fmt.Errorf("反序列化数据失败: %w", err)
+	}
+
+	return value, nil
+}
+
+// Delete 从Redis删除数据
+func (rs *RedisStorage) Delete(key string) error {
+	return rs.client.Del(rs.ctx, key).Err()
+}
+
+// List 从Redis列出数据
+func (rs *RedisStorage) List(prefix string) ([]interface{}, error) {
+	// 使用SCAN命令查找匹配的键
+	pattern := prefix + "*"
+	keys, err := rs.client.Keys(rs.ctx, pattern).Result()
+	if err != nil {
+		return nil, fmt.Errorf("查找键失败: %w", err)
+	}
+
+	if len(keys) == 0 {
+		return []interface{}{}, nil
+	}
+
+	// 批量获取数据
+	values, err := rs.client.MGet(rs.ctx, keys...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("批量获取数据失败: %w", err)
+	}
+
+	var results []interface{}
+	for _, val := range values {
+		if val != nil {
+			// 反序列化数据
+			var value interface{}
+			if data, ok := val.(string); ok {
+				if err := json.Unmarshal([]byte(data), &value); err == nil {
+					results = append(results, value)
+				}
+			}
+		}
+	}
+
+	return results, nil
+}
+
+// Close 关闭Redis连接
+func (rs *RedisStorage) Close() error {
+	return rs.client.Close()
+}
+
+// NewStorage 根据配置创建存储实例
+func NewStorage(cfg *config.StorageConfig) (Storage, error) {
+	switch strings.ToLower(cfg.Type) {
+	case "memory":
+		return NewMemoryStorage(cfg)
+	case "redis":
+		return NewRedisStorage(cfg)
+	default:
+		return nil, fmt.Errorf("不支持的存储类型: %s", cfg.Type)
 	}
 }

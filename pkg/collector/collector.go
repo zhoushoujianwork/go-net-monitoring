@@ -109,6 +109,12 @@ func NewCollector(cfg *config.MonitorConfig, logger *logrus.Logger) (*Collector,
 
 // initInterface 初始化网络接口
 func (c *Collector) initInterface() error {
+	// 在测试或开发环境中，跳过实际的网络接口初始化
+	if os.Getenv("TEST_MODE") == "true" || os.Getenv("DEV_MODE") == "true" {
+		c.logger.Info("运行在测试/开发模式，跳过网络接口初始化")
+		return nil
+	}
+
 	var device string
 
 	if c.config.Interface == "" {
@@ -133,7 +139,8 @@ func (c *Collector) initInterface() error {
 	}
 
 	// 打开网络接口进行抓包
-	handle, err := pcap.OpenLive(device, 1600, true, pcap.BlockForever)
+	// 使用30秒超时而不是BlockForever，避免程序卡死
+	handle, err := pcap.OpenLive(device, 1600, true, 30*time.Second)
 	if err != nil {
 		return fmt.Errorf("打开网络接口 %s 失败: %w", device, err)
 	}

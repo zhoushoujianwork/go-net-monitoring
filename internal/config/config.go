@@ -85,9 +85,22 @@ type MetricsConfig struct {
 
 // StorageConfig 存储配置
 type StorageConfig struct {
-	Type       string `yaml:"type"`        // memory, redis, etc.
+	Type       string `yaml:"type"`        // memory, redis
 	TTL        time.Duration `yaml:"ttl"`  // 数据保留时间
-	MaxEntries int    `yaml:"max_entries"` // 最大条目数
+	MaxEntries int    `yaml:"max_entries"` // 最大条目数 (仅memory)
+	
+	// Redis配置
+	Redis RedisConfig `yaml:"redis"`
+}
+
+// RedisConfig Redis存储配置
+type RedisConfig struct {
+	Host     string `yaml:"host"`     // Redis主机地址
+	Port     int    `yaml:"port"`     // Redis端口
+	Password string `yaml:"password"` // Redis密码
+	DB       int    `yaml:"db"`       // Redis数据库编号
+	PoolSize int    `yaml:"pool_size"` // 连接池大小
+	Timeout  time.Duration `yaml:"timeout"` // 连接超时
 }
 
 // LoadAgentConfig 加载Agent配置
@@ -238,6 +251,14 @@ func setServerDefaults() {
 	viper.SetDefault("storage.type", "memory")
 	viper.SetDefault("storage.ttl", 1*time.Hour)
 	viper.SetDefault("storage.max_entries", 10000)
+	
+	// Redis默认配置
+	viper.SetDefault("storage.redis.host", "localhost")
+	viper.SetDefault("storage.redis.port", 6379)
+	viper.SetDefault("storage.redis.password", "")
+	viper.SetDefault("storage.redis.db", 0)
+	viper.SetDefault("storage.redis.pool_size", 10)
+	viper.SetDefault("storage.redis.timeout", 5*time.Second)
 	
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "json")

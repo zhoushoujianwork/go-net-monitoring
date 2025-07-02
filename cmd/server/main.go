@@ -26,6 +26,22 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVarP(&configPath, "config", "c", "configs/server.yaml", "配置文件路径")
+	
+	// 添加--version标志支持
+	var showVersion bool
+	rootCmd.Flags().BoolVar(&showVersion, "version", false, "显示版本信息")
+	
+	// 在运行前检查版本标志
+	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if showVersion {
+			fmt.Printf("网络监控Server\n")
+			fmt.Printf("版本: %s\n", version)
+			fmt.Printf("构建时间: %s\n", buildTime)
+			fmt.Printf("Git提交: %s\n", gitCommit)
+			os.Exit(0)
+		}
+		return nil
+	}
 
 	// 版本命令
 	versionCmd := &cobra.Command{

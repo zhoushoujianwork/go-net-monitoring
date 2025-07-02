@@ -53,7 +53,7 @@ func NewServer(cfg *config.ServerAppConfig) (*Server, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// 初始化存储
-	storage, err := NewMemoryStorage(&cfg.Storage)
+	storage, err := NewStorage(&cfg.Storage)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("初始化存储失败: %w", err)

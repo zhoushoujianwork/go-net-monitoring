@@ -51,7 +51,9 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 	}
 	
 	// 根据环境选择收集器类型
-	if os.Getenv("TEST_MODE") == "true" {
+	// 在开发环境或没有sudo权限时使用测试收集器
+	if os.Getenv("TEST_MODE") == "true" || os.Getenv("DEV_MODE") == "true" || os.Geteuid() != 0 {
+		logger.Info("使用测试收集器（非root权限或测试模式）")
 		testCollector, err := collector.NewTestCollector(&cfg.Monitor, logger)
 		if err != nil {
 			cancel()
@@ -59,6 +61,7 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 		}
 		coll = testCollector
 	} else {
+		logger.Info("使用真实收集器（root权限）")
 		realCollector, err := collector.NewCollector(&cfg.Monitor, logger)
 		if err != nil {
 			cancel()

@@ -11,6 +11,7 @@ GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 # Go构建参数
 LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
 GO_BUILD := go build $(LDFLAGS)
+GO_BUILD_DEBUG := go build -race -v $(LDFLAGS)
 
 # 默认目标
 .PHONY: all
@@ -19,6 +20,16 @@ all: build
 # 创建bin目录
 $(BINARY_DIR):
 	mkdir -p $(BINARY_DIR)
+
+# 构建Agent（调试版本）
+.PHONY: build-agent-debug
+build-agent-debug: $(BINARY_DIR)
+	$(GO_BUILD_DEBUG) -o $(AGENT_BINARY)-debug ./cmd/agent
+
+# 构建Agent（安全版本，不依赖pcap）
+.PHONY: build-agent-safe
+build-agent-safe: $(BINARY_DIR)
+	$(GO_BUILD) -o $(AGENT_BINARY)-safe ./cmd/agent/main_safe.go
 
 # 构建Agent
 .PHONY: build-agent

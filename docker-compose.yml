@@ -10,8 +10,43 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
       - LOG_LEVEL=info
-      - STORAGE_TYPE=memory
-      - STORAGE_RETENTION=24h
+      - STORAGE_TYPE=memory  # 可选: memory, redis
+      - REDIS_HOST=redis     # 当STORAGE_TYPE=redis时使用
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      # 移除STORAGE_RETENTION - Server作为实时指标服务，不应有时间限制
+    depends_on:
+      - redis
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - netmon
+
+  # Redis服务 (可选，当使用Redis存储时启用)
+  redis:
+    image: redis:7-alpine
+    container_name: netmon-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - netmon
+    profiles:
+      - redis
     ports:
       - "8080:8080"
     volumes:
@@ -100,3 +135,4 @@ networks:
 volumes:
   prometheus_data:
   grafana_data:
+  redis_data:

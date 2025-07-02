@@ -68,9 +68,18 @@ docker run -d \
 
 **使用Docker Compose:**
 ```bash
+# 使用内存存储 (默认)
 curl -O https://raw.githubusercontent.com/zhoushoujian/go-net-monitoring/main/docker-compose.yml
 docker-compose up -d
+
+# 使用Redis存储
+docker-compose --profile redis up -d
 ```
+
+**使用Redis存储的优势:**
+- 数据持久化，Server重启不丢失数据
+- 支持多个Server实例共享数据
+- 更好的性能和扩展性
 
 ### Kubernetes部署
 
@@ -170,8 +179,18 @@ server:
   port: 8080
 
 storage:
-  type: "memory"
-  retention: "24h"
+  type: "memory"  # memory 或 redis
+  # Server作为实时指标聚合服务，不设置数据保留时间
+  # 历史数据存储和保留策略由Prometheus管理
+  
+  # Redis配置 (当type为redis时)
+  redis:
+    host: "localhost"
+    port: 6379
+    password: ""
+    db: 0
+    pool_size: 10
+    timeout: "5s"
 
 log:
   level: "info"

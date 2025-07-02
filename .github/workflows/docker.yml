@@ -93,11 +93,11 @@ jobs:
         
         # 测试server组件
         echo "Testing server component..."
-        docker run --rm -e COMPONENT=server ${{ env.IMAGE_NAME }}:latest server --version
+        docker run --rm -e COMPONENT=server ${{ env.IMAGE_NAME }}:latest server version
         
         # 测试agent组件
         echo "Testing agent component..."
-        docker run --rm -e COMPONENT=agent ${{ env.IMAGE_NAME }}:latest agent --version
+        docker run --rm -e COMPONENT=agent ${{ env.IMAGE_NAME }}:latest agent version
 
     - name: Update Docker Hub description
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
