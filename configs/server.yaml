@@ -3,10 +3,39 @@ server:
   port: 8080
 
 storage:
-  type: "memory"
-  retention: "24h"
+  type: "redis"                    # 使用Redis持久化存储，如需内存模式改为"memory"
+  retention: "24h"                 # 数据保留时间
+  
+  # 混合方案配置 - 解决Agent重启数据丢失问题
+  cumulative_mode: true            # 启用累计模式
+  baseline_tracking: true          # 启用基线跟踪
+  agent_restart_detection: true    # 启用Agent重启检测
+  
+  # Redis配置 (当type为redis时生效)
+  redis:
+    host: "redis"                  # Docker环境使用"redis"，本地环境使用"localhost"
+    port: 6379
+    password: ""
+    db: 0
+    pool_size: 10
+    timeout: "5s"
+  
+  # 内存存储配置 (当type为memory时生效)
+  max_entries: 10000
+
+# Prometheus指标配置
+metrics:
+  path: "/metrics"
+  enabled: true
+  interval: "15s"
 
 log:
-  level: "info"
-  format: "json"
-  output: "stdout"
+  level: "info"                    # debug, info, warn, error
+  format: "json"                   # json, text
+  output: "stdout"                 # stdout, stderr, 或文件路径
+
+# 高级配置
+advanced:
+  agent_timeout: "5m"              # Agent超时时间
+  cleanup_interval: "1h"           # 数据清理间隔
+  max_agents: 1000                 # 最大Agent数量

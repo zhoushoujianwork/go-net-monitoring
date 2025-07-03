@@ -15,6 +15,7 @@ type NetworkEvent struct {
 	DestIP       string    `json:"dest_ip"`
 	DestPort     int       `json:"dest_port"`
 	Domain       string    `json:"domain,omitempty"`       // 域名（如果有）
+	Interface    string    `json:"interface,omitempty"`    // 网卡接口名称
 	BytesSent    uint64    `json:"bytes_sent"`
 	BytesRecv    uint64    `json:"bytes_received"`
 	PacketsSent  uint64    `json:"packets_sent"`
@@ -30,6 +31,7 @@ type NetworkMetrics struct {
 	Timestamp         time.Time            `json:"timestamp"`
 	HostID            string               `json:"host_id"`
 	Hostname          string               `json:"hostname"`
+	Interface         string               `json:"interface,omitempty"`    // 网卡接口名称
 	TotalConnections  uint64               `json:"total_connections"`
 	TotalBytesSent    uint64               `json:"total_bytes_sent"`
 	TotalBytesRecv    uint64               `json:"total_bytes_received"`

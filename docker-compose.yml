@@ -1,20 +1,26 @@
 version: '3.8'
 
 services:
-  # Redis 数据库 (推荐的存储方式)
+  # Redis 数据库 (持久化存储)
   redis:
     image: redis:7-alpine
     container_name: netmon-redis
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./data/redis_data:/data
     command: redis-server --appendonly yes
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - netmon
 
-  # 网络监控服务器 (默认使用 Redis 存储)
+  # 网络监控服务器
   server:
     image: zhoushoujian/go-net-monitoring:latest
     container_name: netmon-server
@@ -24,46 +30,16 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./configs/server-redis.yaml:/app/configs/server.yaml:ro
-      - ./data:/app/data
-      - ./logs:/app/logs
-    command: ["server", "-c", "/app/configs/server.yaml"]
-    depends_on:
-      - redis
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - netmon
-
-  # 网络监控服务器 (内存存储模式，作为备选)
-  server-memory:
-    image: zhoushoujian/go-net-monitoring:latest
-    container_name: netmon-server-memory
-    environment:
-      - COMPONENT=server
-    ports:
-      - "8081:8080"
-    volumes:
       - ./configs/server.yaml:/app/configs/server.yaml:ro
       - ./data:/app/data
       - ./logs:/app/logs
     command: ["server", "-c", "/app/configs/server.yaml"]
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     networks:
       - netmon
-    profiles:
-      - memory
 
   # 网络监控代理
   agent:
@@ -71,6 +47,7 @@ services:
     container_name: netmon-agent
     environment:
       - COMPONENT=agent
+      - HOSTNAME=${HOSTNAME:-netmon-agent}
     depends_on:
       - server
     network_mode: host  # 需要访问主机网络接口
@@ -78,6 +55,7 @@ services:
     volumes:
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
       - ./logs:/app/logs
+      - ./agent/:/var/lib/netmon  # 持久化Agent状态
     command: ["agent", "-c", "/app/configs/agent.yaml"]
     restart: unless-stopped
     healthcheck:
@@ -87,7 +65,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # Prometheus 监控 (可选)
+  # Prometheus 监控 (可选，使用 --profile monitoring 启动)
   prometheus:
     image: prom/prometheus:latest
     container_name: netmon-prometheus
@@ -95,7 +73,7 @@ services:
       - "9090:9090"
     volumes:
       - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
+      - ./data/prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -109,7 +87,7 @@ services:
     profiles:
       - monitoring
 
-  # Grafana 仪表板 (可选)
+  # Grafana 仪表板 (可选，使用 --profile monitoring 启动)
   grafana:
     image: grafana/grafana:latest
     container_name: netmon-grafana
@@ -117,8 +95,10 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - no_proxy=localhost,127.0.0.1,prometheus,server,redis,172.25.0.0/16
+      - NO_PROXY=localhost,127.0.0.1,prometheus,server,redis,172.25.0.0/16
     volumes:
-      - grafana_data:/var/lib/grafana
+      - ./data/grafana_data:/var/lib/grafana
       - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     restart: unless-stopped
@@ -130,8 +110,3 @@ services:
 networks:
   netmon:
     driver: bridge
-
-volumes:
-  redis_data:
-  prometheus_data:
-  grafana_data:

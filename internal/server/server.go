@@ -13,6 +13,7 @@ import (
 	"go-net-monitoring/internal/common"
 	"go-net-monitoring/internal/config"
 	"go-net-monitoring/pkg/metrics"
+	"go-net-monitoring/pkg/network"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -495,6 +496,30 @@ func (s *Server) updateAgentInfo(agentID, hostname string) {
 func (s *Server) processMetricsData(metrics *common.NetworkMetrics) {
 	// 更新Prometheus指标
 	s.metrics.UpdateNetworkMetrics(*metrics)
+	
+	// 更新网卡信息指标
+	s.updateInterfaceMetrics(metrics)
+}
+
+// updateInterfaceMetrics 更新网卡信息指标
+func (s *Server) updateInterfaceMetrics(metrics *common.NetworkMetrics) {
+	// 清除旧的网卡信息指标
+	s.metrics.ClearInterfaceInfo()
+	
+	// 如果有接口信息，创建网络接口管理器来获取详细信息
+	if metrics.Interface != "" && metrics.Interface != "unknown" {
+		// 创建临时的网络接口管理器
+		interfaceManager := network.NewInterfaceManager(s.logger)
+		if err := interfaceManager.RefreshInterfaces(); err != nil {
+			s.logger.WithError(err).Debug("刷新网络接口信息失败")
+			return
+		}
+		
+		// 更新所有网卡的信息指标
+		interfaceManager.UpdateMetrics(func(interfaceName, ipAddress, macAddress, hostname string) {
+			s.metrics.UpdateInterfaceInfo(interfaceName, ipAddress, macAddress, metrics.Hostname)
+		})
+	}
 }
 
 // setupLogger 设置日志

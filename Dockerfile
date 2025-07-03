@@ -42,6 +42,8 @@ RUN apk add --no-cache \
     iproute2 \
     net-tools \
     procps \
+    curl \
+    wget \
     && rm -rf /var/cache/apk/*
 
 # 创建非root用户

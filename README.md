@@ -5,6 +5,8 @@
 
 一个用Go语言开发的高性能网络流量监控系统，支持实时监控主机网络流量，包括域名访问统计、流量分析和Prometheus指标导出。
 
+![网络流量监控](docs/images/全面的网络流量监控.png)
+
 ## ✨ 主要特性
 
 - 🚀 **实时网络监控** - 基于BPF的高性能数据包捕获
@@ -14,6 +16,31 @@
 - 📈 **Prometheus集成** - 内置Prometheus指标导出
 - 🔧 **灵活配置** - 支持YAML配置文件，可自定义监控规则
 - 🏗️ **分布式架构** - Agent/Server架构，支持多节点部署
+- 📱 **专业可视化** - 提供多种专业级Grafana Dashboard
+
+## 📈 Grafana Dashboard
+
+系统提供了三个专业级的 Grafana Dashboard，用于全方位监控网络流量、域名访问和系统状态：
+
+### 1. 网络流量监控 Dashboard
+
+![全面的网络流量监控](docs/images/全面的网络流量监控.png)
+
+全面的网络流量监控 Dashboard 提供了实时的网络连接数、发送/接收字节数、流量速率、协议分布等关键指标。
+
+### 2. 域名流量监控 Dashboard
+
+![专注于域名流量分析](docs/images/专注于域名流量分析.png)
+
+专注于域名流量分析的 Dashboard，提供了详细的域名访问统计、排行榜和趋势图，帮助您深入了解对外网络访问情况。
+
+### 3. 基础网络监控 Dashboard
+
+![基础网络监控](docs/images/基础网络监控.png)
+
+基础网络监控 Dashboard 提供了核心网络指标的监控，包括连接数、域名访问和 Agent 状态。
+
+详细信息请参考：[Dashboard 展示文档](docs/dashboards.md)
 
 ## 🏗️ 系统架构
 
@@ -41,6 +68,11 @@
 - `network_bytes_received_total` - 接收字节总数
 - `network_protocol_stats` - 协议统计
 - `network_ips_accessed_total` - IP访问统计
+
+### 网卡信息指标 (新增)
+- `network_interface_info` - 网卡信息，包含IP地址和MAC地址
+  - 标签: `interface`, `ip_address`, `mac_address`, `host`
+  - 示例: `network_interface_info{interface="eth0",ip_address="192.168.1.100",mac_address="02:42:ac:11:00:02",host="agent"} 1`
 
 ## 🚀 快速开始
 
@@ -94,26 +126,47 @@ docker run -d \
 
 **使用Docker Compose (推荐):**
 
-基于 `configs/` 目录下的 YAML 配置文件，提供简化的部署方式：
-
 ```bash
-# 默认部署 (Redis 存储，推荐)
+# 默认部署 (Redis存储 + 混合方案，推荐)
 docker-compose up -d
 
-# 内存存储模式 (备选方案)
-docker-compose --profile memory up -d server-memory agent
-
-# 完整监控栈 (包含 Prometheus + Grafana)
+# 包含完整监控栈 (Prometheus + Grafana)
 docker-compose --profile monitoring up -d
 ```
 
 **服务端口：**
-- Server (Redis): http://localhost:8080
-- Server (Memory): http://localhost:8081  
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/admin123)
+- Server: http://localhost:8080
+- Prometheus: http://localhost:9090 (使用 --profile monitoring)
+- Grafana: http://localhost:3000 (admin/admin123，使用 --profile monitoring)
 
 详细使用说明请参考：[Docker Compose 使用指南](docs/docker-compose-usage.md)
+
+### 🔄 混合方案 (推荐生产环境)
+
+混合方案解决了Agent重启导致累计统计数据丢失的问题，结合了Agent端持久化和Server端智能累计的优势：
+
+**核心特性：**
+- 🔄 **Agent持久化**: 自动保存和恢复累计状态
+- 🧠 **智能重启检测**: 自动检测Agent重启并保持数据连续性  
+- 📊 **真实累计统计**: 跨重启的准确累计数据
+- 🔒 **数据一致性**: 并发安全的数据处理
+
+**快速启动：**
+```bash
+# 启动混合方案 (默认)
+docker-compose up -d
+
+# 启动包含监控的完整栈
+docker-compose --profile monitoring up -d
+
+# 测试部署
+./test-deployment.sh test
+
+# 查看Agent持久化状态
+docker exec netmon-agent ls -la /var/lib/netmon/
+```
+
+详细说明请参考：[混合方案使用指南](docs/hybrid-solution.md)
 
 ### Kubernetes部署
 
@@ -250,6 +303,38 @@ curl http://localhost:8080/metrics
 
 # 查看域名访问统计
 curl http://localhost:8080/metrics | grep network_domains_accessed_total
+
+# 查看域名流量统计
+curl http://localhost:8080/metrics | grep network_domain_bytes
+```
+
+## 📈 Grafana集成
+
+1. 添加Prometheus数据源：`http://localhost:8080`
+2. 导入示例Dashboard配置
+3. 创建自定义面板监控域名流量
+
+### 示例查询
+
+```promql
+# 域名访问Top10
+topk(10, network_domains_accessed_total)
+
+# 域名流量Top10
+topk(10, network_domain_bytes_sent_total)
+
+# 实时连接数
+rate(network_connections_total[5m])
+
+# 协议分布
+network_protocol_stats_total
+```
+
+### 访问Dashboard
+
+- 网络流量监控: http://localhost:3000/d/network-traffic/
+- 域名流量监控: http://localhost:3000/d/domain-traffic/
+- 基础网络监控: http://localhost:3000/d/network-monitoring/
 
 # 查看域名流量统计
 curl http://localhost:8080/metrics | grep network_domain_bytes

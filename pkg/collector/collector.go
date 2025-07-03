@@ -145,13 +145,8 @@ func (c *Collector) initInterface() error {
 		return fmt.Errorf("打开网络接口 %s 失败: %w", device, err)
 	}
 
-	// 设置BPF过滤器，捕获出站流量和DNS流量
-	filter := fmt.Sprintf("(src host %s and (tcp or udp)) or (port 53)", "192.168.17.92")
-	if err := handle.SetBPFFilter(filter); err != nil {
-		c.logger.WithError(err).Warn("设置BPF过滤器失败，将捕获所有流量")
-	} else {
-		c.logger.Infof("设置BPF过滤器: %s", filter)
-	}
+	// 临时移除BPF过滤器，捕获所有流量进行调试
+	c.logger.Info("暂时不设置BPF过滤器，将捕获所有流量")
 
 	c.handle = handle
 	c.logger.Infof("成功初始化网络接口: %s", device)
@@ -409,9 +404,37 @@ func (c *Collector) parsePacket(packet gopacket.Packet) *common.NetworkEvent {
 		// 尝试解析域名
 		c.resolveDomain(event)
 
-		// 获取数据包大小
-		event.BytesSent = uint64(len(packet.Data()))
-		event.PacketsSent = 1
+		// 获取数据包大小 - 使用整个数据包的长度
+		var packetSize uint64
+		if packet.Metadata() != nil && packet.Metadata().Length > 0 {
+			packetSize = uint64(packet.Metadata().Length)
+		} else {
+			// 备用方案：使用数据包数据长度
+			packetSize = uint64(len(packet.Data()))
+			if packetSize == 0 {
+				// 如果没有数据，至少计算一个最小包大小（以太网头+IP头+TCP头）
+				packetSize = 64 // 最小以太网帧大小
+			}
+		}
+		
+		// 根据方向设置字节数
+		if strings.HasPrefix(event.Direction, "inbound") {
+			event.BytesRecv = packetSize
+			event.PacketsRecv = 1
+			event.BytesSent = 0
+			event.PacketsSent = 0
+		} else if strings.HasPrefix(event.Direction, "outbound") {
+			event.BytesSent = packetSize
+			event.PacketsSent = 1
+			event.BytesRecv = 0
+			event.PacketsRecv = 0
+		} else {
+			// 本地流量，同时计算发送和接收
+			event.BytesSent = packetSize / 2
+			event.BytesRecv = packetSize / 2
+			event.PacketsSent = 1
+			event.PacketsRecv = 1
+		}
 
 		// 为内网流量添加特殊标记
 		if event.Direction == "outbound_internal" {
@@ -522,6 +545,41 @@ func (c *Collector) detectLocalIPs() error {
 
 	c.logger.Infof("检测到 %d 个本机IP地址", len(c.localIPs))
 	return nil
+}
+
+// getLocalIPs 获取本机所有IP地址
+func (c *Collector) getLocalIPs() []string {
+	var ips []string
+	
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		c.logger.WithError(err).Error("获取网络接口失败")
+		return ips
+	}
+	
+	for _, iface := range interfaces {
+		// 跳过回环接口和未启用的接口
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				// 只添加IPv4地址
+				if ipnet.IP.To4() != nil {
+					ips = append(ips, ipnet.IP.String())
+				}
+			}
+		}
+	}
+	
+	c.logger.Infof("检测到本机IP地址: %v", ips)
+	return ips
 }
 
 // isLocalIP 判断是否为本机IP

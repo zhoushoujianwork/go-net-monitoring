@@ -43,18 +43,21 @@ type Metrics struct {
 	EventQueueSize          prometheus.Gauge
 	DNSCacheSize            prometheus.Gauge
 	ConnectionTrackerSize   prometheus.Gauge
+	
+	// 网卡信息指标 (新增)
+	NetworkInterfaceInfo *prometheus.GaugeVec
 }
 
 // NewMetrics 创建新的指标集合
 func NewMetrics() *Metrics {
 	return &Metrics{
-		// 网络连接指标
+		// 网络连接指标 (添加interface标签)
 		NetworkConnectionsTotal: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "network_connections_total",
 				Help: "Total number of network connections",
 			},
-			[]string{"protocol", "direction", "host"},
+			[]string{"protocol", "direction", "host", "interface"},
 		),
 		
 		NetworkBytesSentTotal: promauto.NewCounterVec(
@@ -62,7 +65,7 @@ func NewMetrics() *Metrics {
 				Name: "network_bytes_sent_total",
 				Help: "Total bytes sent over network",
 			},
-			[]string{"protocol", "destination", "host"},
+			[]string{"protocol", "destination", "host", "interface"},
 		),
 		
 		NetworkBytesRecvTotal: promauto.NewCounterVec(
@@ -70,7 +73,7 @@ func NewMetrics() *Metrics {
 				Name: "network_bytes_received_total",
 				Help: "Total bytes received over network",
 			},
-			[]string{"protocol", "source", "host"},
+			[]string{"protocol", "source", "host", "interface"},
 		),
 		
 		NetworkPacketsSentTotal: promauto.NewCounterVec(
@@ -78,7 +81,7 @@ func NewMetrics() *Metrics {
 				Name: "network_packets_sent_total",
 				Help: "Total packets sent over network",
 			},
-			[]string{"protocol", "destination", "host"},
+			[]string{"protocol", "destination", "host", "interface"},
 		),
 		
 		NetworkPacketsRecvTotal: promauto.NewCounterVec(
@@ -86,16 +89,16 @@ func NewMetrics() *Metrics {
 				Name: "network_packets_received_total",
 				Help: "Total packets received over network",
 			},
-			[]string{"protocol", "source", "host"},
+			[]string{"protocol", "source", "host", "interface"},
 		),
 		
-		// 域名和IP访问指标
+		// 域名和IP访问指标 (添加interface标签)
 		NetworkDomainsAccessedTotal: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "network_domains_accessed_total",
 				Help: "Total number of domains accessed",
 			},
-			[]string{"domain", "host"},
+			[]string{"domain", "host", "interface"},
 		),
 		
 		NetworkIPsAccessedTotal: promauto.NewCounterVec(
@@ -103,16 +106,16 @@ func NewMetrics() *Metrics {
 				Name: "network_ips_accessed_total",
 				Help: "Total number of IP addresses accessed",
 			},
-			[]string{"ip", "host"},
+			[]string{"ip", "host", "interface"},
 		),
 		
-		// 按域名的流量指标
+		// 按域名的流量指标 (添加interface标签)
 		NetworkDomainBytesSentTotal: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "network_domain_bytes_sent_total",
 				Help: "Total bytes sent to each domain",
 			},
-			[]string{"domain", "host"},
+			[]string{"domain", "host", "interface"},
 		),
 		
 		NetworkDomainBytesReceivedTotal: promauto.NewCounterVec(
@@ -120,7 +123,7 @@ func NewMetrics() *Metrics {
 				Name: "network_domain_bytes_received_total",
 				Help: "Total bytes received from each domain",
 			},
-			[]string{"domain", "host"},
+			[]string{"domain", "host", "interface"},
 		),
 		
 		NetworkDomainConnectionsTotal: promauto.NewCounterVec(
@@ -128,16 +131,16 @@ func NewMetrics() *Metrics {
 				Name: "network_domain_connections_total",
 				Help: "Total connections to each domain",
 			},
-			[]string{"domain", "host"},
+			[]string{"domain", "host", "interface"},
 		),
 		
-		// 协议统计指标
+		// 协议统计指标 (添加interface标签)
 		NetworkProtocolStats: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "network_protocol_stats_total",
 				Help: "Network protocol statistics",
 			},
-			[]string{"protocol", "host"},
+			[]string{"protocol", "host", "interface"},
 		),
 		
 		// 连接状态指标
@@ -219,63 +222,93 @@ func NewMetrics() *Metrics {
 				Help: "Current size of connection tracker",
 			},
 		),
+		
+		// 网卡信息指标 (新增)
+		NetworkInterfaceInfo: promauto.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "network_interface_info",
+				Help: "Network interface information with IP address and MAC address",
+			},
+			[]string{"interface", "ip_address", "mac_address", "host"},
+		),
 	}
 }
 
-// UpdateNetworkMetrics 更新网络指标
+// UpdateNetworkMetrics 更新网络指标 (支持interface参数)
 func (m *Metrics) UpdateNetworkMetrics(metrics common.NetworkMetrics) {
 	hostname := metrics.Hostname
-	
-	// 添加调试日志
-	// 更新网络指标 - 使用正确的标签数量
-	m.NetworkConnectionsTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalConnections))
-	m.NetworkBytesSentTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalBytesSent))
-	m.NetworkBytesRecvTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalBytesRecv))
-	m.NetworkPacketsSentTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalPacketsSent))
-	m.NetworkPacketsRecvTotal.WithLabelValues("total", "all", hostname).Add(float64(metrics.TotalPacketsRecv))
-
-	// 更新域名访问统计
-	for domain, count := range metrics.DomainsAccessed {
-		m.NetworkDomainsAccessedTotal.WithLabelValues(domain, hostname).Add(float64(count))
+	// 默认使用 "unknown" 作为interface，保持向后兼容
+	interfaceName := "unknown"
+	if metrics.Interface != "" {
+		interfaceName = metrics.Interface
 	}
 	
-	// 更新域名流量统计
+	// 更新网络指标 - 使用正确的标签数量 (添加interface标签)
+	m.NetworkConnectionsTotal.WithLabelValues("total", "all", hostname, interfaceName).Add(float64(metrics.TotalConnections))
+	m.NetworkBytesSentTotal.WithLabelValues("total", "all", hostname, interfaceName).Add(float64(metrics.TotalBytesSent))
+	m.NetworkBytesRecvTotal.WithLabelValues("total", "all", hostname, interfaceName).Add(float64(metrics.TotalBytesRecv))
+	m.NetworkPacketsSentTotal.WithLabelValues("total", "all", hostname, interfaceName).Add(float64(metrics.TotalPacketsSent))
+	m.NetworkPacketsRecvTotal.WithLabelValues("total", "all", hostname, interfaceName).Add(float64(metrics.TotalPacketsRecv))
+
+	// 更新域名访问统计 (添加interface标签)
+	for domain, count := range metrics.DomainsAccessed {
+		m.NetworkDomainsAccessedTotal.WithLabelValues(domain, hostname, interfaceName).Add(float64(count))
+	}
+	
+	// 更新域名流量统计 (添加interface标签)
 	for domain, stats := range metrics.DomainTraffic {
 		if stats != nil {
-			m.NetworkDomainBytesSentTotal.WithLabelValues(domain, hostname).Add(float64(stats.BytesSent))
-			m.NetworkDomainBytesReceivedTotal.WithLabelValues(domain, hostname).Add(float64(stats.BytesReceived))
-			m.NetworkDomainConnectionsTotal.WithLabelValues(domain, hostname).Add(float64(stats.Connections))
+			m.NetworkDomainBytesSentTotal.WithLabelValues(domain, hostname, interfaceName).Add(float64(stats.BytesSent))
+			m.NetworkDomainBytesReceivedTotal.WithLabelValues(domain, hostname, interfaceName).Add(float64(stats.BytesReceived))
+			m.NetworkDomainConnectionsTotal.WithLabelValues(domain, hostname, interfaceName).Add(float64(stats.Connections))
 		}
 	}
 	
-	// 更新IP访问统计
+	// 更新IP访问统计 (添加interface标签)
 	for ip, count := range metrics.IPsAccessed {
-		m.NetworkIPsAccessedTotal.WithLabelValues(ip, hostname).Add(float64(count))
+		m.NetworkIPsAccessedTotal.WithLabelValues(ip, hostname, interfaceName).Add(float64(count))
 	}
 	
-	// 更新协议统计
+	// 更新协议统计 (添加interface标签)
 	for protocol, count := range metrics.ProtocolStats {
-		m.NetworkProtocolStats.WithLabelValues(protocol, hostname).Add(float64(count))
+		m.NetworkProtocolStats.WithLabelValues(protocol, hostname, interfaceName).Add(float64(count))
 	}
 }
 
-// UpdateNetworkEvent 更新网络事件指标
+// UpdateInterfaceInfo 更新网卡信息指标 (新增方法)
+func (m *Metrics) UpdateInterfaceInfo(interfaceName, ipAddress, macAddress, hostname string) {
+	// 设置网卡信息指标，值为1表示该网卡存在
+	m.NetworkInterfaceInfo.WithLabelValues(interfaceName, ipAddress, macAddress, hostname).Set(1)
+}
+
+// ClearInterfaceInfo 清除网卡信息指标 (新增方法)
+func (m *Metrics) ClearInterfaceInfo() {
+	m.NetworkInterfaceInfo.Reset()
+}
+
+// UpdateNetworkEvent 更新网络事件指标 (支持interface参数)
 func (m *Metrics) UpdateNetworkEvent(event common.NetworkEvent) {
 	hostname := event.ProcessName // 或者从其他地方获取hostname
+	interfaceName := "unknown"
+	if event.Interface != "" {
+		interfaceName = event.Interface
+	}
 	
-	// 更新连接计数
+	// 更新连接计数 (添加interface标签)
 	m.NetworkConnectionsTotal.WithLabelValues(
 		event.Protocol,
 		event.Direction,
 		hostname,
+		interfaceName,
 	).Inc()
 	
-	// 更新字节统计
+	// 更新字节统计 (添加interface标签)
 	if event.BytesSent > 0 {
 		m.NetworkBytesSentTotal.WithLabelValues(
 			event.Protocol,
 			event.DestIP,
 			hostname,
+			interfaceName,
 		).Add(float64(event.BytesSent))
 	}
 	
@@ -284,15 +317,17 @@ func (m *Metrics) UpdateNetworkEvent(event common.NetworkEvent) {
 			event.Protocol,
 			event.SourceIP,
 			hostname,
+			interfaceName,
 		).Add(float64(event.BytesRecv))
 	}
 	
-	// 更新包统计
+	// 更新包统计 (添加interface标签)
 	if event.PacketsSent > 0 {
 		m.NetworkPacketsSentTotal.WithLabelValues(
 			event.Protocol,
 			event.DestIP,
 			hostname,
+			interfaceName,
 		).Add(float64(event.PacketsSent))
 	}
 	
@@ -301,14 +336,16 @@ func (m *Metrics) UpdateNetworkEvent(event common.NetworkEvent) {
 			event.Protocol,
 			event.SourceIP,
 			hostname,
+			interfaceName,
 		).Add(float64(event.PacketsRecv))
 	}
 	
-	// 更新连接持续时间
+	// 更新连接持续时间 (添加interface标签)
 	if event.Duration > 0 {
 		m.NetworkConnectionDuration.WithLabelValues(
 			event.Protocol,
 			hostname,
+			interfaceName,
 		).Observe(event.Duration.Seconds())
 	}
 }

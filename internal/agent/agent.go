@@ -16,6 +16,7 @@ import (
 	"go-net-monitoring/internal/common"
 	"go-net-monitoring/internal/config"
 	"go-net-monitoring/pkg/collector"
+	"go-net-monitoring/pkg/network"
 	"go-net-monitoring/pkg/reporter"
 
 	"github.com/sirupsen/logrus"
@@ -23,18 +24,19 @@ import (
 
 // Agent 网络监控代理
 type Agent struct {
-	config    *config.AgentConfig
-	logger    *logrus.Logger
-	collector interface {
+	config           *config.AgentConfig
+	logger           *logrus.Logger
+	collector        interface {
 		Start() error
 		Stop() error
 		GetMetrics() common.NetworkMetrics
 	}
-	reporter  *reporter.Reporter
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	startTime time.Time
+	reporter         *reporter.Reporter
+	interfaceManager *network.InterfaceManager  // 新增：网络接口管理器
+	ctx              context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	startTime        time.Time
 }
 
 // NewAgent 创建新的Agent
@@ -46,6 +48,25 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// 创建网络接口管理器
+	interfaceManager := network.NewInterfaceManager(logger)
+	
+	// 刷新网络接口信息
+	if err := interfaceManager.RefreshInterfaces(); err != nil {
+		logger.WithError(err).Warn("刷新网络接口信息失败，将使用默认值")
+	} else {
+		// 记录检测到的网络接口
+		logger.WithField("interfaces", interfaceManager.String()).Info("检测到网络接口")
+		
+		// 如果配置中的接口为空或为默认值，尝试自动检测
+		if cfg.Monitor.Interface == "" || cfg.Monitor.Interface == "eth0" {
+			if primaryInterface := interfaceManager.GetPrimaryInterfaceName(); primaryInterface != "unknown" {
+				cfg.Monitor.Interface = primaryInterface
+				logger.WithField("interface", primaryInterface).Info("自动检测到主要网络接口")
+			}
+		}
+	}
 
 	// 创建收集器
 	var coll interface {
@@ -82,13 +103,14 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 	}
 
 	agent := &Agent{
-		config:    cfg,
-		logger:    logger,
-		collector: coll,
-		reporter:  reporter,
-		ctx:       ctx,
-		cancel:    cancel,
-		startTime: time.Now(),
+		config:           cfg,
+		logger:           logger,
+		collector:        coll,
+		reporter:         reporter,
+		interfaceManager: interfaceManager,  // 新增
+		ctx:              ctx,
+		cancel:           cancel,
+		startTime:        time.Now(),
 	}
 
 	return agent, nil
@@ -254,10 +276,27 @@ func (a *Agent) reportMetrics() {
 		}
 	}()
 
+	// 刷新网络接口信息
+	if err := a.interfaceManager.RefreshInterfaces(); err != nil {
+		a.logger.WithError(err).Debug("刷新网络接口信息失败")
+	}
+
 	// 获取当前指标
 	metrics := a.collector.GetMetrics()
-	a.logger.Debugf("获取到指标数据: 连接数=%d, 发送字节=%d, IP数量=%d, 域名数量=%d", 
-		metrics.TotalConnections, metrics.TotalBytesSent, 
+	
+	// 设置正确的接口信息
+	if metrics.Interface == "" || metrics.Interface == "unknown" {
+		// 尝试从配置获取接口名
+		if a.config.Monitor.Interface != "" {
+			metrics.Interface = a.config.Monitor.Interface
+		} else {
+			// 使用主要接口
+			metrics.Interface = a.interfaceManager.GetPrimaryInterfaceName()
+		}
+	}
+	
+	a.logger.Debugf("获取到指标数据: 接口=%s, 连接数=%d, 发送字节=%d, IP数量=%d, 域名数量=%d", 
+		metrics.Interface, metrics.TotalConnections, metrics.TotalBytesSent, 
 		len(metrics.IPsAccessed), len(metrics.DomainsAccessed))
 
 	// 打印一些具体的IP和域名统计
