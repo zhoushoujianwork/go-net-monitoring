@@ -15,7 +15,10 @@ build: ## 构建二进制文件 (当前平台)
 
 build-all: ## 构建所有平台的二进制文件
 	@echo "构建所有平台的二进制文件..."
-	@./scripts/build-cross-platform.sh --all
+	@./scripts/build-release.sh
+
+build-release: ## 构建发布包 (推荐用于分发)
+	@./scripts/build-release.sh
 
 build-cross: ## 跨平台构建 (使用脚本)
 	@./scripts/build-cross-platform.sh $(ARGS)

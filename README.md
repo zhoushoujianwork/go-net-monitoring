@@ -254,59 +254,101 @@ brew install libpcap
 
 ### 编译安装
 
-#### 跨平台构建 (推荐)
+#### 🚀 推荐方式 (发布包)
 
-**使用便捷的跨平台构建脚本：**
+**直接使用预编译的发布包：**
+
+```bash
+# 1. 下载对应平台的Server发布包
+# Linux AMD64: go-net-monitoring-server-linux-amd64.tar.gz
+# Linux ARM64: go-net-monitoring-server-linux-arm64.tar.gz
+# macOS Intel: go-net-monitoring-server-darwin-amd64.tar.gz
+# macOS Apple Silicon: go-net-monitoring-server-darwin-arm64.tar.gz
+# Windows: go-net-monitoring-server-windows-amd64.zip
+
+# 2. 解压并运行Server
+tar -xzf go-net-monitoring-server-linux-amd64.tar.gz
+cd go-net-monitoring-server-linux-amd64
+./start-server.sh
+
+# 3. 在监控节点构建Agent
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
+cd go-net-monitoring
+make build-agent  # 需要安装libpcap-dev
+sudo ./agent --config configs/agent.yaml
+```
+
+**发布包特性：**
+- 📦 **Server**: 跨平台预编译，无需依赖
+- 🔧 **Agent**: 需要在目标节点构建 (依赖libpcap)
+- 📝 **文档**: 包含完整的使用说明
+- 🚀 **启动脚本**: 一键启动服务
+
+#### 跨平台构建 (开发者)
+
+**构建所有平台的发布包：**
 
 ```bash
 # 克隆项目
 git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
 cd go-net-monitoring
 
-# 构建当前平台
-make build-cross-current
+# 构建发布包 (推荐)
+make build-release
 
-# 构建所有平台
-make build-all
+# 构建产物:
+# bin/ - 各平台二进制文件
+# dist/ - 发布包 (.tar.gz/.zip)
+```
 
-# 构建特定平台
+**构建特定平台：**
+```bash
 make build-cross-darwin    # macOS (Intel + Apple Silicon)
 make build-cross-linux     # Linux (AMD64 + ARM64)
 make build-cross-windows   # Windows (AMD64)
 ```
 
-**构建产物：**
-- `bin/` - 二进制文件
-- `dist/` - 发布包 (.tar.gz/.zip)
+#### Agent构建指南
 
-#### 平台特定构建
+由于Agent需要CGO和libpcap库，需要在目标平台构建：
 
-**macOS构建：**
+**Linux (Ubuntu/Debian):**
 ```bash
-# 环境设置
-make macos-setup
+sudo apt-get install libpcap-dev
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
+cd go-net-monitoring
+make build-agent
+sudo ./agent --config configs/agent.yaml
+```
 
-# 构建macOS版本
+**macOS:**
+```bash
+brew install libpcap
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
+cd go-net-monitoring
 make macos-build
-
-# 运行
-make macos-run-server    # Server
-make macos-run-agent     # Agent (需要sudo)
+sudo ./agent --config configs/agent-macos.yaml
 ```
 
-**Linux构建：**
+**Windows:**
 ```bash
-# 安装依赖
-sudo apt-get install libpcap-dev  # Ubuntu/Debian
-sudo yum install libpcap-devel    # CentOS/RHEL
-
-# 构建
-make build
-
-# 运行
-./bin/server --config configs/server.yaml
-sudo ./bin/agent --config configs/agent.yaml
+# 安装Npcap: https://npcap.com/
+# 使用MSYS2或Visual Studio构建
+# 详见: docs/agent-build-guide.md
 ```
+
+**Docker方式 (推荐):**
+```bash
+docker run -d \
+  --name netmon-agent \
+  --privileged \
+  --network host \
+  -e COMPONENT=agent \
+  -e SERVER_URL=http://your-server:8080/api/v1/metrics \
+  zhoushoujian/go-net-monitoring:latest
+```
+
+详细构建说明请参考：[Agent构建指南](docs/agent-build-guide.md)
 
 #### 传统构建方式
 
