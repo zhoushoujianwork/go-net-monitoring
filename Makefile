@@ -34,6 +34,21 @@ docker-build: ## 构建Docker镜像
 	@echo "$(BLUE)[INFO]$(NC) 构建Docker镜像..."
 	@./scripts/build-optimized.sh
 
+docker-build-local: ## 本地构建Docker镜像 (避免网络问题)
+	@echo "$(BLUE)[INFO]$(NC) 本地构建Docker镜像..."
+	@chmod +x scripts/build-local.sh
+	@./scripts/build-local.sh
+
+docker-build-fixed: ## 网络优化构建Docker镜像
+	@echo "$(BLUE)[INFO]$(NC) 网络优化构建Docker镜像..."
+	@chmod +x scripts/build-docker-fixed.sh
+	@./scripts/build-docker-fixed.sh
+
+docker-build-push: ## 构建并推送Docker镜像
+	@echo "$(BLUE)[INFO]$(NC) 构建并推送Docker镜像..."
+	@chmod +x scripts/build-docker-fixed.sh
+	@./scripts/build-docker-fixed.sh --push
+
 # Docker服务管理
 docker-up: ## 启动服务 (生产模式)
 	@echo "$(GREEN)启动服务...$(NC)"
