@@ -1,148 +1,132 @@
-# Makefile for go-net-monitoring
-
-# 变量定义
-BINARY_DIR := bin
-AGENT_BINARY := $(BINARY_DIR)/agent
-SERVER_BINARY := $(BINARY_DIR)/server
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
-GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
-
-# Go构建参数
-LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT)"
-GO_BUILD := go build $(LDFLAGS)
-GO_BUILD_DEBUG := go build -race -v $(LDFLAGS)
+.PHONY: help build build-optimized clean test docker-up docker-down docker-logs docker-clean
 
 # 默认目标
-.PHONY: all
-all: build
+help: ## 显示帮助信息
+	@echo "可用的命令:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# 创建bin目录
-$(BINARY_DIR):
-	mkdir -p $(BINARY_DIR)
+# 构建相关
+build: ## 构建二进制文件
+	@echo "构建二进制文件..."
+	@mkdir -p bin
+	CGO_ENABLED=1 go build -o bin/agent ./cmd/agent
+	CGO_ENABLED=0 go build -o bin/server ./cmd/server
+	@echo "构建完成: bin/agent, bin/server"
 
-# 构建Agent（调试版本）
-.PHONY: build-agent-debug
-build-agent-debug: $(BINARY_DIR)
-	$(GO_BUILD_DEBUG) -o $(AGENT_BINARY)-debug ./cmd/agent
+build-optimized: ## 优化构建Docker镜像
+	@./scripts/build-optimized.sh
 
-# 构建Agent（安全版本，不依赖pcap）
-.PHONY: build-agent-safe
-build-agent-safe: $(BINARY_DIR)
-	$(GO_BUILD) -o $(AGENT_BINARY)-safe ./cmd/agent/main_safe.go
+build-clean: ## 清理缓存后构建
+	@./scripts/build-optimized.sh --clean-cache
 
-# 构建Agent
-.PHONY: build-agent
-build-agent: $(BINARY_DIR)
-	$(GO_BUILD) -o $(AGENT_BINARY) ./cmd/agent
+build-test: ## 构建并测试
+	@./scripts/build-optimized.sh --test
 
-# 构建Server
-.PHONY: build-server
-build-server: $(BINARY_DIR)
-	$(GO_BUILD) -o $(SERVER_BINARY) ./cmd/server
+# 清理相关
+clean: ## 清理构建文件
+	@echo "清理构建文件..."
+	@rm -rf bin/
+	@docker system prune -f >/dev/null 2>&1 || true
+	@echo "清理完成"
 
-# 构建全部
-.PHONY: build
-build: build-agent build-server
+clean-all: ## 深度清理
+	@echo "深度清理..."
+	@rm -rf bin/ data/ logs/
+	@docker system prune -af >/dev/null 2>&1 || true
+	@docker volume prune -f >/dev/null 2>&1 || true
+	@echo "深度清理完成"
 
-# 运行测试
-.PHONY: test
-test:
-	go test -v ./...
+# 测试相关
+test: ## 运行测试
+	@echo "运行测试..."
+	@go test -v ./...
 
-# 运行测试并生成覆盖率报告
-.PHONY: test-coverage
-test-coverage:
-	go test -v -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
+test-coverage: ## 运行测试并生成覆盖率报告
+	@echo "生成测试覆盖率报告..."
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "覆盖率报告: coverage.html"
 
-# 代码格式化
-.PHONY: fmt
-fmt:
-	go fmt ./...
+# Docker相关
+docker-up: ## 启动服务 (生产模式)
+	@echo "启动服务..."
+	@docker-compose up -d
 
-# 代码检查
-.PHONY: lint
-lint:
-	golangci-lint run
+docker-up-debug: ## 启动服务 (调试模式)
+	@echo "启动服务 (调试模式)..."
+	@DEBUG_MODE=true LOG_LEVEL=debug docker-compose up -d
 
-# 清理构建文件
-.PHONY: clean
-clean:
-	rm -rf $(BINARY_DIR)
-	rm -f coverage.out coverage.html
+docker-up-monitoring: ## 启动完整监控栈
+	@echo "启动完整监控栈..."
+	@docker-compose --profile monitoring up -d
 
-# 安装依赖
-.PHONY: deps
-deps:
-	go mod download
-	go mod tidy
+docker-down: ## 停止服务
+	@echo "停止服务..."
+	@docker-compose down
 
-# 运行Agent（开发模式）
-.PHONY: run-agent
-run-agent: build-agent
-	sudo $(AGENT_BINARY) --config configs/agent.yaml
+docker-restart: ## 重启服务
+	@echo "重启服务..."
+	@docker-compose restart
 
-# 运行Server（开发模式）
-.PHONY: run-server
-run-server: build-server
-	$(SERVER_BINARY) --config configs/server.yaml
+docker-logs: ## 查看日志
+	@docker-compose logs -f
 
-# Docker构建
-.PHONY: docker-build
-docker-build:
-	docker build -t go-net-monitoring:$(VERSION) .
+docker-logs-agent: ## 查看Agent日志
+	@docker-compose logs -f agent
 
-# 生成文档
-.PHONY: docs
-docs:
-	@echo "生成API文档..."
-	@mkdir -p docs/api
-	@echo "文档生成完成"
+docker-logs-server: ## 查看Server日志
+	@docker-compose logs -f server
 
-# 部署脚本
-.PHONY: deploy
-deploy: build
-	@echo "部署到生产环境..."
-	@./scripts/deploy.sh
+docker-clean: ## 清理Docker资源
+	@echo "清理Docker资源..."
+	@docker-compose down -v
+	@docker system prune -f
+	@echo "Docker清理完成"
 
-# 开发环境设置
-.PHONY: dev-setup
-dev-setup:
+# 开发相关
+dev-setup: ## 设置开发环境
 	@echo "设置开发环境..."
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go mod download
+	@mkdir -p bin data logs
 	@echo "开发环境设置完成"
 
-# 检查代码质量
-.PHONY: check
-check: fmt lint test
+dev-run-server: ## 运行Server (开发模式)
+	@echo "运行Server (开发模式)..."
+	@go run ./cmd/server --config configs/server.yaml --debug
 
-# 发布版本
-.PHONY: release
-release: check build
-	@echo "发布版本 $(VERSION)"
-	@./scripts/release.sh $(VERSION)
+dev-run-agent: ## 运行Agent (开发模式，需要root权限)
+	@echo "运行Agent (开发模式)..."
+	@sudo go run ./cmd/agent --config configs/agent.yaml --debug
 
-# 帮助信息
-.PHONY: help
-help:
-	@echo "可用的make目标:"
-	@echo "  all          - 构建全部组件"
-	@echo "  build        - 构建全部组件"
-	@echo "  build-agent  - 构建Agent"
-	@echo "  build-server - 构建Server"
-	@echo "  test         - 运行测试"
-	@echo "  test-coverage- 运行测试并生成覆盖率报告"
-	@echo "  fmt          - 格式化代码"
-	@echo "  lint         - 代码检查"
-	@echo "  clean        - 清理构建文件"
-	@echo "  deps         - 安装依赖"
-	@echo "  run-agent    - 运行Agent（需要sudo权限）"
-	@echo "  run-server   - 运行Server"
-	@echo "  docker-build - Docker构建"
-	@echo "  docs         - 生成文档"
-	@echo "  deploy       - 部署到生产环境"
-	@echo "  dev-setup    - 设置开发环境"
-	@echo "  check        - 检查代码质量"
-	@echo "  release      - 发布版本"
-	@echo "  help         - 显示帮助信息"
+# 部署相关
+deploy-build: build-optimized ## 构建部署镜像
+	@echo "部署镜像构建完成"
+
+deploy-push: ## 推送镜像到仓库
+	@echo "推送镜像..."
+	@docker tag go-net-monitoring:latest zhoushoujian/go-net-monitoring:latest
+	@docker push zhoushoujian/go-net-monitoring:latest
+	@echo "镜像推送完成"
+
+# 监控相关
+metrics: ## 查看指标
+	@echo "当前指标:"
+	@curl -s http://localhost:8080/metrics | grep -E "(network_domain|network_connections)" | head -10
+
+health: ## 检查服务健康状态
+	@echo "检查服务健康状态..."
+	@curl -s http://localhost:8080/health || echo "Server不可用"
+	@docker ps --filter "name=netmon" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# 文档相关
+docs: ## 生成文档
+	@echo "生成文档..."
+	@go doc -all ./... > docs/api.md
+	@echo "文档生成完成: docs/api.md"
+
+# 版本相关
+version: ## 显示版本信息
+	@echo "版本信息:"
+	@git describe --tags --always --dirty 2>/dev/null || echo "dev"
+	@echo "Git提交: $(shell git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+	@echo "构建时间: $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")"
