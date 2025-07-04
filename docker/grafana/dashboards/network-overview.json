@@ -18,14 +18,109 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 3,
-  "links": [],
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "详细分析",
+      "tooltip": "查看详细的网络监控分析",
+      "type": "dashboards",
+      "url": "/d/network-detailed/网络监控-详细分析"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "全局概览",
+      "type": "row"
+    },
+    {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-netmon"
+          },
+          "expr": "count(network_interface_info)",
+          "interval": "",
+          "legendFormat": "总设备数",
+          "refId": "A"
+        }
+      ],
+      "title": "监控设备总数",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
@@ -50,84 +145,15 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "cps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(network_connections_total)",
-          "interval": "",
-          "legendFormat": "总连接数",
-          "refId": "A"
-        }
-      ],
-      "title": "总网络连接数",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 500
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 1
       },
       "id": 2,
       "options": {
@@ -149,21 +175,21 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "count(count by (domain) (network_domains_accessed_total))",
+          "expr": "sum(rate(network_connections_total{protocol=\"total\"}[5m]))",
           "interval": "",
-          "legendFormat": "域名数量",
+          "legendFormat": "总连接速率",
           "refId": "A"
         }
       ],
-      "title": "访问域名数量",
+      "title": "全网连接速率",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
@@ -177,18 +203,26 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10485760
+              },
+              {
+                "color": "red",
+                "value": 104857600
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "binBps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "id": 3,
       "options": {
@@ -210,21 +244,21 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "sum(network_bytes_sent_total)",
+          "expr": "sum(rate(network_bytes_sent_total{protocol=\"total\"}[5m]))",
           "interval": "",
-          "legendFormat": "总发送字节",
+          "legendFormat": "总发送速率",
           "refId": "A"
         }
       ],
-      "title": "总发送字节数",
+      "title": "全网发送速率",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
@@ -238,18 +272,26 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10485760
+              },
+              {
+                "color": "red",
+                "value": 104857600
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "binBps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 18,
-        "y": 0
+        "y": 1
       },
       "id": 4,
       "options": {
@@ -271,21 +313,34 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "sum(network_bytes_received_total)",
+          "expr": "sum(rate(network_bytes_received_total{protocol=\"total\"}[5m]))",
           "interval": "",
-          "legendFormat": "总接收字节",
+          "legendFormat": "总接收速率",
           "refId": "A"
         }
       ],
-      "title": "总接收字节数",
+      "title": "全网接收速率",
       "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "panels": [],
+      "title": "网络流量趋势",
+      "type": "row"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
@@ -334,7 +389,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "binBps"
         },
         "overrides": []
       },
@@ -360,21 +415,31 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "rate(network_connections_total[5m])",
+          "expr": "rate(network_bytes_sent_total{protocol=\"total\"}[5m])",
           "interval": "",
-          "legendFormat": "连接速率 - {{interface}}",
+          "legendFormat": "{{host}}-{{interface}} 发送",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-netmon"
+          },
+          "expr": "rate(network_bytes_received_total{protocol=\"total\"}[5m])",
+          "interval": "",
+          "legendFormat": "{{host}}-{{interface}} 接收",
+          "refId": "B"
         }
       ],
-      "title": "网络连接速率",
+      "title": "网络流量速率 - 按设备",
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
@@ -423,7 +488,7 @@
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "cps"
         },
         "overrides": []
       },
@@ -449,197 +514,37 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "rate(network_bytes_sent_total[5m])",
+          "expr": "rate(network_connections_total{protocol=\"total\"}[5m])",
           "interval": "",
-          "legendFormat": "发送速率 - {{interface}}",
+          "legendFormat": "{{host}}-{{interface}} 连接",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(network_bytes_received_total[5m])",
-          "interval": "",
-          "legendFormat": "接收速率 - {{interface}}",
-          "refId": "B"
         }
       ],
-      "title": "网络流量速率",
+      "title": "网络连接速率 - 按设备",
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "IP地址"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 150
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "MAC地址"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 150
-              }
-            ]
-          }
-        ]
-      },
+      "collapsed": false,
       "gridPos": {
-        "h": 6,
+        "h": 1,
         "w": 24,
         "x": 0,
         "y": 14
       },
-      "id": 7,
-      "options": {
-        "showHeader": true
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "network_interface_info",
-          "format": "table",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "title": "网卡信息",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Value": true,
-              "__name__": true
-            },
-            "indexByName": {},
-            "renameByName": {
-              "host": "主机名",
-              "interface": "网卡接口",
-              "ip_address": "IP地址",
-              "mac_address": "MAC地址"
-            }
-          }
-        }
-      ],
-      "type": "table"
+      "id": 102,
+      "panels": [],
+      "title": "设备状态监控",
+      "type": "row"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            }
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 20
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "right"
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "topk(10, sum by (domain) (network_domains_accessed_total))",
-          "interval": "",
-          "legendFormat": "{{domain}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Top 10 域名访问次数",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
           "custom": {
             "align": "auto",
             "displayMode": "auto",
@@ -660,21 +565,85 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "状态"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "1": {
+                        "color": "green",
+                        "index": 0,
+                        "text": "在线"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "连接速率"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "cps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "发送速率"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "接收速率"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "binBps"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 20
+        "w": 24,
+        "x": 0,
+        "y": 15
       },
-      "id": 9,
+      "id": 7,
       "options": {
         "showHeader": true,
         "sortBy": [
           {
             "desc": true,
-            "displayName": "访问次数"
+            "displayName": "发送速率"
           }
         ]
       },
@@ -683,27 +652,98 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "topk(15, sum by (domain) (network_domains_accessed_total))",
+          "expr": "network_interface_info",
           "format": "table",
+          "instant": true,
           "interval": "",
           "legendFormat": "",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-netmon"
+          },
+          "expr": "rate(network_connections_total{protocol=\"total\"}[5m])",
+          "format": "table",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-netmon"
+          },
+          "expr": "rate(network_bytes_sent_total{protocol=\"total\"}[5m])",
+          "format": "table",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-netmon"
+          },
+          "expr": "rate(network_bytes_received_total{protocol=\"total\"}[5m])",
+          "format": "table",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "D"
         }
       ],
-      "title": "域名访问排行榜",
+      "title": "设备实时状态",
       "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "host"
+          }
+        },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "destination": true,
+              "direction": true,
+              "interface 2": true,
+              "interface 3": true,
+              "interface 4": true,
+              "protocol 1": true,
+              "protocol 2": true,
+              "protocol 3": true,
+              "source": true
             },
-            "indexByName": {},
+            "indexByName": {
+              "Value #A": 4,
+              "Value #B": 5,
+              "Value #C": 6,
+              "Value #D": 7,
+              "host": 0,
+              "interface 1": 1,
+              "ip_address": 2,
+              "mac_address": 3
+            },
             "renameByName": {
-              "Value": "访问次数",
-              "domain": "域名"
+              "Value #A": "状态",
+              "Value #B": "连接速率",
+              "Value #C": "发送速率",
+              "Value #D": "接收速率",
+              "host": "主机名",
+              "interface 1": "网卡",
+              "ip_address": "IP地址",
+              "mac_address": "MAC地址"
             }
           }
         }
@@ -711,163 +751,121 @@
       "type": "table"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
+      "collapsed": false,
       "gridPos": {
-        "h": 4,
-        "w": 6,
+        "h": 1,
+        "w": 24,
         "x": 0,
-        "y": 28
+        "y": 23
       },
-      "id": 10,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "agent_uptime_seconds",
-          "interval": "",
-          "legendFormat": "运行时间",
-          "refId": "A"
-        }
-      ],
-      "title": "Agent运行时间",
-      "type": "stat"
+      "id": 103,
+      "panels": [],
+      "title": "热门域名访问",
+      "type": "row"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "prometheus-netmon"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
           },
           "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "dateTimeFromNow"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 28
-      },
-      "id": 11,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "agent_last_report_timestamp * 1000",
-          "interval": "",
-          "legendFormat": "最后上报",
-          "refId": "A"
-        }
-      ],
-      "title": "最后上报时间",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
           "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-netmon"
+          },
+          "expr": "topk(10, sum by (domain) (network_domains_accessed_total))",
+          "interval": "",
+          "legendFormat": "{{domain}}",
+          "refId": "A"
+        }
+      ],
+      "title": "全网域名访问次数 Top10",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-netmon"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
+          },
+          "mappings": [],
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
         "x": 12,
-        "y": 28
+        "y": 24
       },
-      "id": 12,
+      "id": 9,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -875,105 +873,46 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "9.0.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "prometheus-netmon"
           },
-          "expr": "dns_cache_size",
+          "expr": "topk(10, sum by (domain) (network_domain_bytes_sent_total))",
           "interval": "",
-          "legendFormat": "DNS缓存大小",
+          "legendFormat": "{{domain}}",
           "refId": "A"
         }
       ],
-      "title": "DNS缓存大小",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 28
-      },
-      "id": 13,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "connection_tracker_size",
-          "interval": "",
-          "legendFormat": "连接跟踪器大小",
-          "refId": "A"
-        }
-      ],
-      "title": "连接跟踪器大小",
-      "type": "stat"
+      "title": "全网域名发送流量 Top10",
+      "type": "piechart"
     }
   ],
-  "refresh": "5s",
-  "schemaVersion": 36,
+  "refresh": "30s",
+  "schemaVersion": 37,
   "style": "dark",
   "tags": [
     "network",
-    "basic",
-    "monitoring"
+    "monitoring",
+    "overview"
   ],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "基础网络监控",
-  "uid": "network-monitoring",
+  "title": "网络监控 - 总体概览",
+  "uid": "network-overview",
   "version": 1,
   "weekStart": ""
 }

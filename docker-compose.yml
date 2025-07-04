@@ -35,6 +35,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      # 配置文件挂载是可选的，如果不存在会自动生成
       - ./configs/server.yaml:/app/configs/server.yaml:ro
       - ./data:/app/data
       - ./logs:/app/logs
@@ -54,15 +55,26 @@ services:
       - HOSTNAME=${HOSTNAME:-netmon-agent}
       - DEBUG_MODE=false
       - LOG_LEVEL=info
+      - SERVER_URL=http://server:8080/api/v1/metrics
+      - NETWORK_INTERFACE=eth0
+      # 代理绕过配置
+      - no_proxy=localhost,127.0.0.1,server,redis,prometheus,grafana,172.25.0.0/16
+      - NO_PROXY=localhost,127.0.0.1,server,redis,prometheus,grafana,172.25.0.0/16
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
     depends_on:
       - server
-    network_mode: host  # 需要访问主机网络接口
     privileged: true    # 需要特权模式进行网络监控
     volumes:
+      # 配置文件挂载是可选的，如果不存在会自动生成
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
       - ./logs:/app/logs
       - ./agent/:/var/lib/netmon  # 持久化Agent状态
     restart: unless-stopped
+    networks:
+      - netmon
     healthcheck:
       test: ["CMD", "pgrep", "agent"]
       interval: 30s

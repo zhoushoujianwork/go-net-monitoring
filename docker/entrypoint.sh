@@ -50,7 +50,7 @@ check_environment() {
         LOG_LEVEL=${LOG_LEVEL:-info}
     fi
     
-    # 根据组件设置配置文件
+    # 根据组件设置配置文件路径
     if [ "$COMPONENT" = "agent" ]; then
         CONFIG_FILE=${CONFIG_FILE:-/app/configs/agent.yaml}
         NETWORK_INTERFACE=${NETWORK_INTERFACE:-eth0}
@@ -102,6 +102,7 @@ check_environment() {
         log_info "Server URL: $SERVER_URL"
         log_info "Server Host: $SERVER_HOST"
         log_info "Server Port: $SERVER_PORT"
+        log_info "Network Interface: $NETWORK_INTERFACE"
     fi
 }
 
@@ -109,11 +110,15 @@ check_environment() {
 generate_config() {
     log_info "生成配置文件..."
     
-    # 创建配置目录
-    mkdir -p "$(dirname "$CONFIG_FILE")"
+    # 使用临时目录来生成配置文件，避免只读文件系统问题
+    TEMP_CONFIG_DIR="/tmp/netmon-config"
+    TEMP_CONFIG_FILE="$TEMP_CONFIG_DIR/$(basename "$CONFIG_FILE")"
+    
+    # 创建临时配置目录
+    mkdir -p "$TEMP_CONFIG_DIR"
     
     if [ "$COMPONENT" = "agent" ]; then
-        cat > "$CONFIG_FILE" << EOF
+        cat > "$TEMP_CONFIG_FILE" << EOF
 server:
   host: "${SERVER_HOST}"
   port: ${SERVER_PORT}
@@ -149,7 +154,7 @@ log:
   output: "${LOG_OUTPUT:-stdout}"
 EOF
     elif [ "$COMPONENT" = "server" ]; then
-        cat > "$CONFIG_FILE" << EOF
+        cat > "$TEMP_CONFIG_FILE" << EOF
 http:
   host: "${SERVER_HOST:-0.0.0.0}"
   port: ${SERVER_PORT:-8080}
@@ -185,6 +190,9 @@ log:
   output: "${LOG_OUTPUT:-stdout}"
 EOF
     fi
+    
+    # 更新配置文件路径为临时文件
+    CONFIG_FILE="$TEMP_CONFIG_FILE"
     
     log_success "配置文件生成完成: $CONFIG_FILE"
 }
@@ -239,8 +247,14 @@ check_config_file() {
         REGENERATE_CONFIG=true
     fi
     
-    # 如果配置文件已存在且不需要重新生成，则使用现有文件
-    if [ -f "$CONFIG_FILE" ] && [ "$REGENERATE_CONFIG" = "false" ]; then
+    # 检查原始配置文件是否存在且可读
+    ORIGINAL_CONFIG_EXISTS=false
+    if [ -f "$CONFIG_FILE" ] && [ -r "$CONFIG_FILE" ]; then
+        ORIGINAL_CONFIG_EXISTS=true
+    fi
+    
+    # 如果原始配置文件存在且不需要重新生成，则使用现有文件
+    if [ "$ORIGINAL_CONFIG_EXISTS" = "true" ] && [ "$REGENERATE_CONFIG" = "false" ]; then
         log_success "使用现有配置文件: $CONFIG_FILE"
         
         # 只在debug模式下显示配置文件内容
@@ -252,7 +266,7 @@ check_config_file() {
         if [ "$REGENERATE_CONFIG" = "true" ]; then
             log_info "重新生成配置文件以应用环境变量"
         else
-            log_info "配置文件不存在，将生成默认配置"
+            log_info "配置文件不存在或不可读，将生成默认配置"
         fi
         generate_config
         
@@ -264,9 +278,9 @@ check_config_file() {
     fi
 }
 
-# 构建启动命令
-build_command() {
-    log_info "构建启动命令..."
+# 启动应用
+start_application() {
+    log_info "启动 $COMPONENT..."
     
     # 检查二进制文件是否存在
     BINARY_PATH="/usr/local/bin/$COMPONENT"
@@ -275,51 +289,19 @@ build_command() {
         exit 1
     fi
     
-    # 构建命令参数
-    CMD_ARGS="--config $CONFIG_FILE"
+    log_info "二进制文件: $BINARY_PATH"
+    log_info "配置文件: $CONFIG_FILE"
+    log_info "Debug模式: $DEBUG_MODE"
+    log_info "用户: $(whoami)"
     
-    # 如果启用debug模式，添加debug参数
-    if [ "$DEBUG_MODE" = "true" ]; then
-        CMD_ARGS="--debug $CMD_ARGS"
-        log_info "启用Debug模式"
-    fi
-    
-    FULL_COMMAND="$BINARY_PATH $CMD_ARGS"
-    
-    log_success "启动命令: $FULL_COMMAND"
-    log_info "启动参数:"
-    log_info "  二进制文件: $BINARY_PATH"
-    log_info "  配置文件: $CONFIG_FILE"
-    log_info "  Debug模式: $DEBUG_MODE"
-    log_info "  用户: $(whoami)"
-    
-    echo "$FULL_COMMAND"
-}
-
-# 启动应用
-start_application() {
-    echo "[INFO] 启动 $COMPONENT..."
-    
-    # 检查二进制文件是否存在
-    BINARY_PATH="/usr/local/bin/$COMPONENT"
-    if [ ! -f "$BINARY_PATH" ]; then
-        echo "[ERROR] 二进制文件不存在: $BINARY_PATH"
-        exit 1
-    fi
-    
-    echo "[INFO] 二进制文件: $BINARY_PATH"
-    echo "[INFO] 配置文件: $CONFIG_FILE"
-    echo "[INFO] Debug模式: $DEBUG_MODE"
-    echo "[INFO] 用户: $(whoami)"
-    
-    echo "[SUCCESS] 正在启动应用..."
+    log_success "正在启动应用..."
     
     # 直接执行命令，避免颜色代码问题
     if [ "$DEBUG_MODE" = "true" ]; then
-        echo "[INFO] 启动命令: $BINARY_PATH --debug --config $CONFIG_FILE"
+        log_info "启动命令: $BINARY_PATH --debug --config $CONFIG_FILE"
         exec "$BINARY_PATH" --debug --config "$CONFIG_FILE"
     else
-        echo "[INFO] 启动命令: $BINARY_PATH --config $CONFIG_FILE"
+        log_info "启动命令: $BINARY_PATH --config $CONFIG_FILE"
         exec "$BINARY_PATH" --config "$CONFIG_FILE"
     fi
 }
