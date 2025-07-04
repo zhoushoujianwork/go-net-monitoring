@@ -250,8 +250,6 @@ func (c *Collector) Stop() error {
 
 // capturePackets 捕获数据包
 func (c *Collector) capturePackets() {
-	defer c.wg.Done()
-
 	// 测试模式下handle为nil，不进行真实的数据包捕获
 	if c.handle == nil {
 		c.logger.Info("测试模式：跳过数据包捕获")
@@ -298,8 +296,6 @@ func (c *Collector) capturePackets() {
 
 // packetProcessor 处理数据包
 func (c *Collector) packetProcessor() {
-	defer c.wg.Done()
-
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -325,8 +321,6 @@ func (c *Collector) packetProcessor() {
 
 // eventProcessor 处理网络事件
 func (c *Collector) eventProcessor() {
-	defer c.wg.Done()
-
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -341,8 +335,6 @@ func (c *Collector) eventProcessor() {
 
 // connectionTracker 连接跟踪
 func (c *Collector) connectionTracker() {
-	defer c.wg.Done()
-
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -396,8 +388,11 @@ func (c *Collector) parsePacket(packet gopacket.Packet) *common.NetworkEvent {
 	// 判断流量方向
 	event.Direction = c.getTrafficDirection(srcIP, dstIP)
 
-	// 处理出站流量（包括内网和外网）
-	if strings.HasPrefix(event.Direction, "outbound") {
+	// 添加流量方向统计
+	c.logger.Debugf("数据包方向: %s (%s -> %s)", event.Direction, srcIP, dstIP)
+
+	// 处理出站和入站流量（包括内网和外网）
+	if strings.HasPrefix(event.Direction, "outbound") || strings.HasPrefix(event.Direction, "inbound") {
 		// 解析应用层
 		c.parseApplicationLayer(packet, event)
 
@@ -436,9 +431,15 @@ func (c *Collector) parsePacket(packet gopacket.Packet) *common.NetworkEvent {
 			event.PacketsRecv = 1
 		}
 
-		// 为内网流量添加特殊标记
-		if event.Direction == "outbound_internal" {
+		// 为不同方向的流量添加特殊标记
+		if strings.HasPrefix(event.Direction, "outbound") && strings.Contains(event.Direction, "internal") {
 			c.logger.Debugf("解析到内网出站数据包: %s -> %s (%s:%d) domain=%s",
+				event.SourceIP, event.DestIP, event.Protocol, event.DestPort, event.Domain)
+		} else if strings.HasPrefix(event.Direction, "inbound") && strings.Contains(event.Direction, "internal") {
+			c.logger.Debugf("解析到内网入站数据包: %s -> %s (%s:%d) domain=%s",
+				event.SourceIP, event.DestIP, event.Protocol, event.DestPort, event.Domain)
+		} else if strings.HasPrefix(event.Direction, "inbound") {
+			c.logger.Debugf("解析到外网入站数据包: %s -> %s (%s:%d) domain=%s",
 				event.SourceIP, event.DestIP, event.Protocol, event.DestPort, event.Domain)
 		} else {
 			c.logger.Debugf("解析到外网出站数据包: %s -> %s (%s:%d) domain=%s",
@@ -457,24 +458,31 @@ func (c *Collector) getTrafficDirection(srcIP, dstIP string) string {
 	srcIsLocal := c.isLocalIP(srcIP)
 	dstIsLocal := c.isLocalIP(dstIP)
 
+	c.logger.Debugf("流量方向判断: %s -> %s (srcLocal: %t, dstLocal: %t)", srcIP, dstIP, srcIsLocal, dstIsLocal)
+
 	// 如果源IP是本机IP，目标IP不是本机IP，则为出站流量
 	if srcIsLocal && !dstIsLocal {
 		// 进一步区分是否为内网流量
 		if c.isPrivateIP(dstIP) {
+			c.logger.Debugf("识别为出站内网流量: %s -> %s", srcIP, dstIP)
 			return "outbound_internal" // 出站内网流量
 		}
+		c.logger.Debugf("识别为出站外网流量: %s -> %s", srcIP, dstIP)
 		return "outbound_external" // 出站外网流量
 	}
 
 	// 如果源IP不是本机IP，目标IP是本机IP，则为入站流量
 	if !srcIsLocal && dstIsLocal {
 		if c.isPrivateIP(srcIP) {
+			c.logger.Debugf("识别为入站内网流量: %s -> %s", srcIP, dstIP)
 			return "inbound_internal" // 入站内网流量
 		}
+		c.logger.Debugf("识别为入站外网流量: %s -> %s", srcIP, dstIP)
 		return "inbound_external" // 入站外网流量
 	}
 
 	// 两个都是本机IP或都不是本机IP
+	c.logger.Debugf("识别为本地流量: %s -> %s", srcIP, dstIP)
 	return "local"
 }
 
@@ -727,28 +735,46 @@ func (c *Collector) resolveDomain(event *common.NetworkEvent) {
 		return
 	}
 
+	// 根据流量方向选择要解析的IP
+	var targetIP string
+	var targetPort int
+	
+	if strings.HasPrefix(event.Direction, "outbound") {
+		// 出站流量：解析目标IP的域名
+		targetIP = event.DestIP
+		targetPort = event.DestPort
+	} else if strings.HasPrefix(event.Direction, "inbound") {
+		// 入站流量：解析源IP的域名
+		targetIP = event.SourceIP
+		targetPort = event.SourcePort
+	} else {
+		// 本地流量：默认使用目标IP
+		targetIP = event.DestIP
+		targetPort = event.DestPort
+	}
+
 	// 首先检查DNS缓存中是否有原始域名
-	if originalDomain, exists := c.dnsCache.GetOriginalDomain(event.DestIP); exists {
+	if originalDomain, exists := c.dnsCache.GetOriginalDomain(targetIP); exists {
 		event.Domain = originalDomain
-		c.logger.Infof("✅ 从DNS缓存获取域名: %s -> %s", event.DestIP, originalDomain)
+		c.logger.Infof("✅ 从DNS缓存获取域名: %s -> %s (%s)", targetIP, originalDomain, event.Direction)
 		return
 	}
 
 	// 为内网IP提供特殊的域名标识（只有在没有DNS缓存时才使用）
-	if c.isPrivateIP(event.DestIP) {
-		event.Domain = c.generateInternalDomainName(event.DestIP, event.DestPort)
-		c.logger.Debugf("生成内网域名: %s -> %s", event.DestIP, event.Domain)
+	if c.isPrivateIP(targetIP) {
+		event.Domain = c.generateInternalDomainName(targetIP, targetPort)
+		c.logger.Debugf("生成内网域名: %s -> %s (%s)", targetIP, event.Domain, event.Direction)
 		return
 	}
 
 	// 如果缓存中没有，尝试反向DNS解析（异步）
 	go func() {
-		if names, err := net.LookupAddr(event.DestIP); err == nil && len(names) > 0 {
+		if names, err := net.LookupAddr(targetIP); err == nil && len(names) > 0 {
 			domain := strings.TrimSuffix(names[0], ".")
-			c.logger.Debugf("反向DNS解析 %s -> %s", event.DestIP, domain)
+			c.logger.Debugf("反向DNS解析 %s -> %s (%s)", targetIP, domain, event.Direction)
 
 			// 只有在DNS缓存中没有更好的域名时才使用反向DNS结果
-			if _, exists := c.dnsCache.GetOriginalDomain(event.DestIP); !exists {
+			if _, exists := c.dnsCache.GetOriginalDomain(targetIP); !exists {
 				// 创建一个新的事件来记录域名信息
 				domainEvent := *event
 				domainEvent.Domain = domain

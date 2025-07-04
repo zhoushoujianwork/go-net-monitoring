@@ -50,6 +50,6 @@ reporter:
   agent_id: "${HOSTNAME}"          # Agent唯一标识，支持环境变量
 
 log:
-  level: "info"                    # debug, info, warn, error
+  level: "debug"                   # debug, info, warn, error
   format: "json"                   # json, text
   output: "stdout"                 # stdout, stderr, 或文件路径
