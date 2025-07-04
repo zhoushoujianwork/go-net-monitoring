@@ -41,8 +41,14 @@ check_environment() {
     
     # 设置默认值
     COMPONENT=${COMPONENT:-server}
-    LOG_LEVEL=${LOG_LEVEL:-info}
     DEBUG_MODE=${DEBUG_MODE:-false}
+    
+    # 根据DEBUG_MODE自动设置LOG_LEVEL，避免重复配置
+    if [ "$DEBUG_MODE" = "true" ]; then
+        LOG_LEVEL="debug"
+    else
+        LOG_LEVEL=${LOG_LEVEL:-info}
+    fi
     
     # 根据组件设置配置文件
     if [ "$COMPONENT" = "agent" ]; then
@@ -62,8 +68,8 @@ check_environment() {
     log_success "环境变量检查完成"
     log_info "组件类型: $COMPONENT"
     log_info "配置文件: $CONFIG_FILE"
-    log_info "日志级别: $LOG_LEVEL"
     log_info "Debug模式: $DEBUG_MODE"
+    log_info "日志级别: $LOG_LEVEL"
 }
 
 # 生成配置文件
@@ -189,8 +195,8 @@ check_config_file() {
     if [ -f "$CONFIG_FILE" ]; then
         log_success "使用现有配置文件: $CONFIG_FILE"
         
-        # 显示配置文件内容（调试模式）
-        if [ "$DEBUG_MODE" = "true" ] || [ "$LOG_LEVEL" = "debug" ]; then
+        # 只在debug模式下显示配置文件内容
+        if [ "$DEBUG_MODE" = "true" ]; then
             log_info "配置文件内容:"
             cat "$CONFIG_FILE" | sed 's/^/  /'
         fi

@@ -72,10 +72,11 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("加载配置失败: %w", err)
 	}
 
-	// 如果启用了debug模式，设置日志级别
+	// 如果启用了debug模式，设置日志级别和格式
 	if debugMode {
 		cfg.Log.Level = "debug"
 		cfg.Log.Format = "text" // debug模式使用text格式更易读
+		fmt.Println("Agent Debug模式已启用")
 	}
 
 	// 创建Agent

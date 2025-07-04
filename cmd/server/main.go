@@ -75,7 +75,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// 如果命令行指定了debug模式，覆盖配置文件设置
 	if debugMode {
 		cfg.HTTP.Debug = true
-		fmt.Println("Debug模式已启用")
+		cfg.Log.Level = "debug"
+		cfg.Log.Format = "text" // debug模式使用text格式更易读
+		fmt.Println("Server Debug模式已启用")
 	}
 
 	// 创建Server

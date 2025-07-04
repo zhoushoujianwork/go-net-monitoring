@@ -106,11 +106,11 @@ test-integration: ## 运行集成测试
 # Docker相关
 docker-up: ## 启动服务 (生产模式)
 	@echo "启动服务..."
-	@docker-compose up -d
+	@DEBUG_MODE=false docker-compose up -d
 
 docker-up-debug: ## 启动服务 (调试模式)
 	@echo "启动服务 (调试模式)..."
-	@DEBUG_MODE=true LOG_LEVEL=debug docker-compose up -d
+	@DEBUG_MODE=true docker-compose up -d
 
 docker-up-monitoring: ## 启动完整监控栈
 	@echo "启动完整监控栈..."
@@ -119,6 +119,16 @@ docker-up-monitoring: ## 启动完整监控栈
 docker-up-test: ## 启动测试环境
 	@echo "启动测试环境..."
 	@docker-compose -f docker-compose.test.yml up -d
+
+docker-debug-on: ## 切换到debug模式
+	@echo "切换到debug模式..."
+	@DEBUG_MODE=true docker-compose up -d
+	@echo "Debug模式已启用，查看日志: make docker-logs"
+
+docker-debug-off: ## 切换到生产模式
+	@echo "切换到生产模式..."
+	@DEBUG_MODE=false docker-compose up -d
+	@echo "生产模式已启用"
 
 docker-down: ## 停止服务
 	@echo "停止服务..."

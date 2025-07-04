@@ -25,13 +25,13 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-    image: zhoushoujian/go-net-monitoring:latest
+    image: go-net-monitoring:latest
     container_name: netmon-server
     environment:
       - COMPONENT=server
       - REDIS_HOST=redis
-      - DEBUG_MODE=false
-      - LOG_LEVEL=info
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     ports:
       - "8080:8080"
     volumes:
@@ -47,16 +47,13 @@ services:
 
   # 网络监控代理
   agent:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    image: zhoushoujian/go-net-monitoring:latest
+    image: go-net-monitoring:latest
     container_name: netmon-agent
     environment:
       - COMPONENT=agent
       - HOSTNAME=${HOSTNAME:-netmon-agent}
-      - DEBUG_MODE=false
-      - LOG_LEVEL=info
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
       - server
     network_mode: host  # 需要访问主机网络接口
