@@ -56,7 +56,7 @@ services:
       - DEBUG_MODE=false
       - LOG_LEVEL=info
       - SERVER_URL=http://server:8080/api/v1/metrics
-      - NETWORK_INTERFACE=eth0
+      # - NETWORK_INTERFACE=eth0
       # 代理绕过配置
       - no_proxy=localhost,127.0.0.1,server,redis,prometheus,grafana,172.25.0.0/16
       - NO_PROXY=localhost,127.0.0.1,server,redis,prometheus,grafana,172.25.0.0/16
