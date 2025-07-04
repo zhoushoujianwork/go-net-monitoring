@@ -5,7 +5,7 @@ set -e
 # 配置
 DOCKER_REGISTRY="zhoushoujian"
 IMAGE_NAME="go-net-monitoring"
-VERSION=${1:-"latest"}
+VERSION="latest"  # 默认版本，不从$1获取
 PLATFORMS="linux/amd64,linux/arm64"
 
 # 颜色输出
@@ -327,6 +327,7 @@ parse_args() {
     PUSH=false
     NO_TEST=false
     FIX_NETWORK=false
+    VERSION_SET=false
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -352,7 +353,7 @@ parse_args() {
                 exit 1
                 ;;
             *)
-                if [ -z "$VERSION_SET" ]; then
+                if [ "$VERSION_SET" = "false" ]; then
                     VERSION="$1"
                     VERSION_SET=true
                 else

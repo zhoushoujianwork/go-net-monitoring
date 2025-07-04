@@ -25,6 +25,11 @@ help: ## 显示帮助信息
 	@echo "  2. $(YELLOW)make docker-up$(NC)        - 启动服务"
 	@echo "  3. $(YELLOW)make health$(NC)           - 检查服务状态"
 	@echo ""
+	@echo "$(GREEN)构建选项:$(NC)"
+	@echo "  $(YELLOW)make docker-build-local$(NC)  - 本地构建 (推荐，避免网络问题)"
+	@echo "  $(YELLOW)make docker-build-fixed$(NC)  - 网络优化构建"
+	@echo "  $(YELLOW)make docker-build-push$(NC)   - 构建并推送到Docker Hub"
+	@echo ""
 	@echo "$(GREEN)调试模式:$(NC)"
 	@echo "  $(YELLOW)make docker-up-debug$(NC)    - 启动调试模式"
 	@echo "  $(YELLOW)make docker-logs$(NC)        - 查看日志"
@@ -46,8 +51,17 @@ docker-build-fixed: ## 网络优化构建Docker镜像
 
 docker-build-push: ## 构建并推送Docker镜像
 	@echo "$(BLUE)[INFO]$(NC) 构建并推送Docker镜像..."
-	@chmod +x scripts/build-docker-fixed.sh
-	@./scripts/build-docker-fixed.sh --push
+	@echo "$(YELLOW)[STEP 1/2]$(NC) 本地构建镜像..."
+	@chmod +x scripts/build-local.sh
+	@./scripts/build-local.sh
+	@echo "$(YELLOW)[STEP 2/2]$(NC) 推送镜像..."
+	@chmod +x scripts/push-image.sh
+	@./scripts/push-image.sh
+
+docker-push: ## 推送已构建的Docker镜像
+	@echo "$(BLUE)[INFO]$(NC) 推送Docker镜像..."
+	@chmod +x scripts/push-image.sh
+	@./scripts/push-image.sh
 
 # Docker服务管理
 docker-up: ## 启动服务 (生产模式)
