@@ -858,9 +858,9 @@ func (c *Collector) updateMetrics(event *common.NetworkEvent) {
 	// 更新流量方向统计
 	c.metrics.DirectionStats[event.Direction]++
 	
-	// 每100个事件打印一次方向统计
-	if c.metrics.TotalConnections%100 == 0 {
-		c.logger.Infof("流量方向统计: %+v", c.metrics.DirectionStats)
+	// 每50个事件打印一次方向统计
+	if c.metrics.TotalConnections%50 == 0 {
+		c.logger.Infof("流量方向统计 (总连接: %d): %+v", c.metrics.TotalConnections, c.metrics.DirectionStats)
 	}
 
 	// 更新域名访问统计
