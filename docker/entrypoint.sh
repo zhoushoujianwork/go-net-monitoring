@@ -55,6 +55,33 @@ check_environment() {
         CONFIG_FILE=${CONFIG_FILE:-/app/configs/agent.yaml}
         NETWORK_INTERFACE=${NETWORK_INTERFACE:-eth0}
         SERVER_URL=${SERVER_URL:-http://localhost:8080/api/v1/metrics}
+        
+        # 从SERVER_URL解析SERVER_HOST和SERVER_PORT
+        if echo "$SERVER_URL" | grep -q "://"; then
+            # 提取协议后的部分
+            URL_WITHOUT_PROTOCOL=$(echo "$SERVER_URL" | sed 's|^[^:]*://||')
+            # 提取主机和端口部分（去掉路径）
+            HOST_PORT=$(echo "$URL_WITHOUT_PROTOCOL" | sed 's|/.*||')
+            
+            if echo "$HOST_PORT" | grep -q ":"; then
+                # 有端口号
+                SERVER_HOST=$(echo "$HOST_PORT" | cut -d: -f1)
+                SERVER_PORT=$(echo "$HOST_PORT" | cut -d: -f2)
+            else
+                # 没有端口号，使用默认端口
+                SERVER_HOST="$HOST_PORT"
+                if echo "$SERVER_URL" | grep -q "^https://"; then
+                    SERVER_PORT=443
+                else
+                    SERVER_PORT=80
+                fi
+            fi
+        else
+            # 如果不是完整URL，使用默认值
+            SERVER_HOST=${SERVER_HOST:-localhost}
+            SERVER_PORT=${SERVER_PORT:-8080}
+        fi
+        
     elif [ "$COMPONENT" = "server" ]; then
         CONFIG_FILE=${CONFIG_FILE:-/app/configs/server.yaml}
         SERVER_HOST=${SERVER_HOST:-0.0.0.0}
@@ -70,6 +97,12 @@ check_environment() {
     log_info "配置文件: $CONFIG_FILE"
     log_info "Debug模式: $DEBUG_MODE"
     log_info "日志级别: $LOG_LEVEL"
+    
+    if [ "$COMPONENT" = "agent" ]; then
+        log_info "Server URL: $SERVER_URL"
+        log_info "Server Host: $SERVER_HOST"
+        log_info "Server Port: $SERVER_PORT"
+    fi
 }
 
 # 生成配置文件
@@ -82,8 +115,8 @@ generate_config() {
     if [ "$COMPONENT" = "agent" ]; then
         cat > "$CONFIG_FILE" << EOF
 server:
-  host: "${SERVER_HOST:-localhost}"
-  port: ${SERVER_PORT:-8080}
+  host: "${SERVER_HOST}"
+  port: ${SERVER_PORT}
 
 monitor:
   interface: "${NETWORK_INTERFACE:-eth0}"
@@ -105,7 +138,7 @@ monitor:
       - "::1"
 
 reporter:
-  server_url: "${SERVER_URL:-http://localhost:8080/api/v1/metrics}"
+  server_url: "${SERVER_URL}"
   timeout: "${REPORTER_TIMEOUT:-10s}"
   retry_count: ${RETRY_COUNT:-3}
   batch_size: ${BATCH_SIZE:-100}
@@ -191,8 +224,23 @@ check_permissions() {
 check_config_file() {
     log_info "检查配置文件..."
     
-    # 如果配置文件已存在（通过volume挂载），则使用现有文件
-    if [ -f "$CONFIG_FILE" ]; then
+    # 检查是否需要重新生成配置文件
+    REGENERATE_CONFIG=false
+    
+    # 如果是Agent且设置了SERVER_URL环境变量，强制重新生成配置
+    if [ "$COMPONENT" = "agent" ] && [ -n "$SERVER_URL" ] && [ "$SERVER_URL" != "http://localhost:8080/api/v1/metrics" ]; then
+        log_info "检测到自定义SERVER_URL，将重新生成配置文件"
+        REGENERATE_CONFIG=true
+    fi
+    
+    # 如果设置了DEBUG_MODE环境变量，强制重新生成配置
+    if [ -n "$DEBUG_MODE" ]; then
+        log_info "检测到DEBUG_MODE环境变量，将重新生成配置文件"
+        REGENERATE_CONFIG=true
+    fi
+    
+    # 如果配置文件已存在且不需要重新生成，则使用现有文件
+    if [ -f "$CONFIG_FILE" ] && [ "$REGENERATE_CONFIG" = "false" ]; then
         log_success "使用现有配置文件: $CONFIG_FILE"
         
         # 只在debug模式下显示配置文件内容
@@ -201,8 +249,18 @@ check_config_file() {
             cat "$CONFIG_FILE" | sed 's/^/  /'
         fi
     else
-        log_info "配置文件不存在，将生成默认配置"
+        if [ "$REGENERATE_CONFIG" = "true" ]; then
+            log_info "重新生成配置文件以应用环境变量"
+        else
+            log_info "配置文件不存在，将生成默认配置"
+        fi
         generate_config
+        
+        # 在debug模式下显示生成的配置文件内容
+        if [ "$DEBUG_MODE" = "true" ]; then
+            log_info "生成的配置文件内容:"
+            cat "$CONFIG_FILE" | sed 's/^/  /'
+        fi
     fi
 }
 
