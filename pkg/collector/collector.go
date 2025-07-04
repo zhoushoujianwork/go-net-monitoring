@@ -51,15 +51,15 @@ type NetworkMetrics struct {
 	ProcessStats     map[int]*common.ProcessStats
 	LastUpdate       time.Time
 	// 新增：流量方向统计
-	DirectionStats   map[string]uint64  // 统计各个方向的流量数量
+	DirectionStats map[string]uint64 // 统计各个方向的流量数量
 }
 
 // NewTestCollector 创建测试收集器（用于测试环境）
 func NewTestCollector(cfg *config.MonitorConfig, logger *logrus.Logger) (*Collector, error) {
 	logger.Info("创建测试收集器")
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	collector := &Collector{
 		config:      cfg,
 		logger:      logger,
@@ -72,7 +72,7 @@ func NewTestCollector(cfg *config.MonitorConfig, logger *logrus.Logger) (*Collec
 		ctx:         ctx,
 		cancel:      cancel,
 	}
-	
+
 	// 测试模式下不需要真实的网络接口，handle保持为nil
 	logger.Info("测试收集器创建成功")
 	return collector, nil
@@ -328,7 +328,7 @@ func (c *Collector) eventProcessor() {
 		case <-c.ctx.Done():
 			return
 		case event := <-c.eventChan:
-			c.logger.Debugf("处理网络事件: Domain=%s, DestIP=%s, Protocol=%s", 
+			c.logger.Debugf("处理网络事件: Domain=%s, DestIP=%s, Protocol=%s",
 				event.Domain, event.DestIP, event.Protocol)
 			c.updateMetrics(&event)
 		}
@@ -413,7 +413,7 @@ func (c *Collector) parsePacket(packet gopacket.Packet) *common.NetworkEvent {
 				packetSize = 64 // 最小以太网帧大小
 			}
 		}
-		
+
 		// 根据方向设置字节数
 		if strings.HasPrefix(event.Direction, "inbound") {
 			event.BytesRecv = packetSize
@@ -560,24 +560,24 @@ func (c *Collector) detectLocalIPs() error {
 // getLocalIPs 获取本机所有IP地址
 func (c *Collector) getLocalIPs() []string {
 	var ips []string
-	
+
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		c.logger.WithError(err).Error("获取网络接口失败")
 		return ips
 	}
-	
+
 	for _, iface := range interfaces {
 		// 跳过回环接口和未启用的接口
 		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
 			continue
 		}
-		
+
 		addrs, err := iface.Addrs()
 		if err != nil {
 			continue
 		}
-		
+
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				// 只添加IPv4地址
@@ -587,7 +587,7 @@ func (c *Collector) getLocalIPs() []string {
 			}
 		}
 	}
-	
+
 	c.logger.Infof("检测到本机IP地址: %v", ips)
 	return ips
 }
@@ -740,7 +740,7 @@ func (c *Collector) resolveDomain(event *common.NetworkEvent) {
 	// 根据流量方向选择要解析的IP
 	var targetIP string
 	var targetPort int
-	
+
 	if strings.HasPrefix(event.Direction, "outbound") {
 		// 出站流量：解析目标IP的域名
 		targetIP = event.DestIP
@@ -857,7 +857,7 @@ func (c *Collector) updateMetrics(event *common.NetworkEvent) {
 
 	// 更新流量方向统计
 	c.metrics.DirectionStats[event.Direction]++
-	
+
 	// 每50个事件打印一次方向统计
 	if c.metrics.TotalConnections%50 == 0 {
 		c.logger.Infof("流量方向统计 (总连接: %d): %+v", c.metrics.TotalConnections, c.metrics.DirectionStats)
@@ -867,14 +867,14 @@ func (c *Collector) updateMetrics(event *common.NetworkEvent) {
 	if event.Domain != "" {
 		c.metrics.DomainsAccessed[event.Domain]++
 		c.logger.Debugf("更新域名统计: %s (总计: %d)", event.Domain, c.metrics.DomainsAccessed[event.Domain])
-		
+
 		// 更新域名流量统计
 		if c.metrics.DomainTraffic[event.Domain] == nil {
 			c.metrics.DomainTraffic[event.Domain] = &common.DomainTrafficStats{
 				Domain: event.Domain,
 			}
 		}
-		
+
 		domainStats := c.metrics.DomainTraffic[event.Domain]
 		domainStats.BytesSent += event.BytesSent
 		domainStats.BytesReceived += event.BytesRecv
@@ -882,8 +882,8 @@ func (c *Collector) updateMetrics(event *common.NetworkEvent) {
 		domainStats.PacketsRecv += event.PacketsRecv
 		domainStats.Connections++
 		domainStats.LastAccess = time.Now()
-		
-		c.logger.Debugf("更新域名流量: %s (发送: %d bytes, 接收: %d bytes, 连接: %d)", 
+
+		c.logger.Debugf("更新域名流量: %s (发送: %d bytes, 接收: %d bytes, 连接: %d)",
 			event.Domain, domainStats.BytesSent, domainStats.BytesReceived, domainStats.Connections)
 	}
 

@@ -22,6 +22,58 @@ build-clean: ## 清理缓存后构建
 build-test: ## 构建并测试
 	@./scripts/build-optimized.sh --test
 
+# CI/CD相关
+ci-lint: ## CI: 代码质量检查
+	@echo "运行代码质量检查..."
+	@go fmt ./...
+	@echo "代码格式化完成"
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		echo "运行golangci-lint..."; \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint未安装，跳过linter检查"; \
+	fi
+	@echo "代码质量检查完成"
+
+ci-test: ## CI: 运行测试
+	@echo "运行单元测试..."
+	@if pkg-config --exists libpcap; then \
+		echo "libpcap可用，运行完整测试"; \
+		go test -v -race -coverprofile=coverage.out ./...; \
+	else \
+		echo "libpcap不可用，跳过需要pcap的测试"; \
+		go test -v -race -coverprofile=coverage.out -tags=nopcap ./pkg/metrics ./internal/server ./internal/common; \
+	fi
+	@echo "测试完成"
+
+ci-build: ## CI: 构建验证
+	@echo "CI构建验证..."
+	@mkdir -p bin
+	@if pkg-config --exists libpcap; then \
+		echo "libpcap可用，构建完整版本"; \
+		CGO_ENABLED=1 GOOS=linux go build -o bin/agent ./cmd/agent; \
+	else \
+		echo "libpcap不可用，跳过agent构建"; \
+	fi
+	CGO_ENABLED=0 GOOS=linux go build -o bin/server ./cmd/server
+	@echo "CI构建完成"
+
+ci-docker: ## CI: Docker构建测试
+	@echo "Docker构建测试..."
+	@docker build --tag go-net-monitoring:test .
+	@echo "Docker构建完成"
+
+ci-integration: ## CI: 集成测试
+	@echo "运行集成测试..."
+	@docker-compose -f docker-compose.test.yml up -d
+	@sleep 30
+	@curl -f http://localhost:8081/health || (docker-compose -f docker-compose.test.yml logs && exit 1)
+	@curl -f http://localhost:8081/metrics || (docker-compose -f docker-compose.test.yml logs && exit 1)
+	@docker-compose -f docker-compose.test.yml down
+	@echo "集成测试完成"
+
+ci-all: ci-lint ci-test ci-build ci-docker ci-integration ## CI: 运行完整CI流程
+
 # 清理相关
 clean: ## 清理构建文件
 	@echo "清理构建文件..."
@@ -31,7 +83,7 @@ clean: ## 清理构建文件
 
 clean-all: ## 深度清理
 	@echo "深度清理..."
-	@rm -rf bin/ data/ logs/
+	@rm -rf bin/ data/ logs/ coverage.out coverage.html
 	@docker system prune -af >/dev/null 2>&1 || true
 	@docker volume prune -f >/dev/null 2>&1 || true
 	@echo "深度清理完成"
@@ -47,6 +99,10 @@ test-coverage: ## 运行测试并生成覆盖率报告
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "覆盖率报告: coverage.html"
 
+test-integration: ## 运行集成测试
+	@echo "运行集成测试..."
+	@make ci-integration
+
 # Docker相关
 docker-up: ## 启动服务 (生产模式)
 	@echo "启动服务..."
@@ -60,9 +116,17 @@ docker-up-monitoring: ## 启动完整监控栈
 	@echo "启动完整监控栈..."
 	@docker-compose --profile monitoring up -d
 
+docker-up-test: ## 启动测试环境
+	@echo "启动测试环境..."
+	@docker-compose -f docker-compose.test.yml up -d
+
 docker-down: ## 停止服务
 	@echo "停止服务..."
 	@docker-compose down
+
+docker-down-test: ## 停止测试环境
+	@echo "停止测试环境..."
+	@docker-compose -f docker-compose.test.yml down
 
 docker-restart: ## 重启服务
 	@echo "重启服务..."
@@ -77,9 +141,13 @@ docker-logs-agent: ## 查看Agent日志
 docker-logs-server: ## 查看Server日志
 	@docker-compose logs -f server
 
+docker-logs-test: ## 查看测试环境日志
+	@docker-compose -f docker-compose.test.yml logs
+
 docker-clean: ## 清理Docker资源
 	@echo "清理Docker资源..."
 	@docker-compose down -v
+	@docker-compose -f docker-compose.test.yml down -v >/dev/null 2>&1 || true
 	@docker system prune -f
 	@echo "Docker清理完成"
 
@@ -108,6 +176,13 @@ deploy-push: ## 推送镜像到仓库
 	@docker push zhoushoujian/go-net-monitoring:latest
 	@echo "镜像推送完成"
 
+deploy-k8s: ## 部署到Kubernetes
+	@echo "部署到Kubernetes..."
+	@kubectl apply -f k8s/namespace.yaml
+	@kubectl apply -f k8s/server-deployment.yaml
+	@kubectl apply -f k8s/agent-daemonset.yaml
+	@echo "Kubernetes部署完成"
+
 # 监控相关
 metrics: ## 查看指标
 	@echo "当前指标:"
@@ -117,6 +192,21 @@ health: ## 检查服务健康状态
 	@echo "检查服务健康状态..."
 	@curl -s http://localhost:8080/health || echo "Server不可用"
 	@docker ps --filter "name=netmon" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# 质量检查
+fmt: ## 格式化代码
+	@echo "格式化代码..."
+	@go fmt ./...
+
+vet: ## 代码静态检查
+	@echo "运行go vet..."
+	@go vet ./...
+
+lint: ## 运行linter
+	@echo "运行golangci-lint..."
+	@golangci-lint run
+
+quality: fmt vet lint test ## 运行所有质量检查
 
 # 文档相关
 docs: ## 生成文档
@@ -130,3 +220,17 @@ version: ## 显示版本信息
 	@git describe --tags --always --dirty 2>/dev/null || echo "dev"
 	@echo "Git提交: $(shell git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
 	@echo "构建时间: $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+# 发布相关
+release-prepare: ## 准备发布
+	@echo "准备发布..."
+	@make quality
+	@make ci-all
+	@echo "发布准备完成"
+
+release-tag: ## 创建发布标签
+	@echo "创建发布标签..."
+	@read -p "输入版本号 (例如: v1.0.0): " version; \
+	git tag -a $$version -m "Release $$version"; \
+	git push origin $$version
+	@echo "发布标签创建完成"

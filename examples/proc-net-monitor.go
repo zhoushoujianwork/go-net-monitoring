@@ -11,11 +11,11 @@ import (
 
 // NetworkStats 网络统计信息
 type NetworkStats struct {
-	Interface     string
-	BytesReceived uint64
-	BytesSent     uint64
+	Interface       string
+	BytesReceived   uint64
+	BytesSent       uint64
 	PacketsReceived uint64
-	PacketsSent   uint64
+	PacketsSent     uint64
 }
 
 // readNetworkStats 从 /proc/net/dev 读取网络统计信息
@@ -28,7 +28,7 @@ func readNetworkStats() ([]NetworkStats, error) {
 
 	var stats []NetworkStats
 	scanner := bufio.NewScanner(file)
-	
+
 	// 跳过前两行（标题行）
 	scanner.Scan()
 	scanner.Scan()
@@ -46,10 +46,10 @@ func readNetworkStats() ([]NetworkStats, error) {
 		}
 
 		interfaceName := strings.TrimSuffix(parts[0], ":")
-		
+
 		// 跳过回环接口和虚拟接口
-		if interfaceName == "lo" || strings.HasPrefix(interfaceName, "veth") || 
-		   strings.HasPrefix(interfaceName, "br-") || strings.HasPrefix(interfaceName, "docker") {
+		if interfaceName == "lo" || strings.HasPrefix(interfaceName, "veth") ||
+			strings.HasPrefix(interfaceName, "br-") || strings.HasPrefix(interfaceName, "docker") {
 			continue
 		}
 
@@ -100,10 +100,10 @@ func readNetworkConnections() (int, error) {
 
 func main() {
 	fmt.Println("=== 基于 /proc/net 的网络监控示例 ===")
-	
+
 	for i := 0; i < 5; i++ {
 		fmt.Printf("\n--- 第 %d 次采样 ---\n", i+1)
-		
+
 		// 读取网络统计
 		stats, err := readNetworkStats()
 		if err != nil {

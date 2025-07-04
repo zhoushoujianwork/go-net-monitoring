@@ -53,7 +53,7 @@ func (d *InterfaceDetector) DetectInterfaces() ([]*InterfaceInfo, error) {
 	}
 
 	var result []*InterfaceInfo
-	
+
 	for _, iface := range interfaces {
 		info := &InterfaceInfo{
 			Name:         iface.Name,
@@ -135,12 +135,12 @@ func (d *InterfaceDetector) shouldIncludeInterface(info *InterfaceInfo) bool {
 // isVirtualInterface 判断是否为虚拟网卡
 func (d *InterfaceDetector) isVirtualInterface(name string) bool {
 	virtualPrefixes := []string{
-		"veth",     // Docker veth pairs
-		"tap",      // TAP interfaces
-		"tun",      // TUN interfaces
-		"virbr",    // libvirt bridges
-		"vmnet",    // VMware interfaces
-		"vboxnet",  // VirtualBox interfaces
+		"veth",    // Docker veth pairs
+		"tap",     // TAP interfaces
+		"tun",     // TUN interfaces
+		"virbr",   // libvirt bridges
+		"vmnet",   // VMware interfaces
+		"vboxnet", // VirtualBox interfaces
 	}
 
 	for _, prefix := range virtualPrefixes {
@@ -209,12 +209,12 @@ func (d *InterfaceDetector) GetInterfaceTrafficStats(name string) (map[string]in
 		"rx_errors":  0,
 		"tx_errors":  0,
 	}
-	
+
 	return stats, nil
 }
 
 // String 返回网卡信息的字符串表示
 func (info *InterfaceInfo) String() string {
-	return fmt.Sprintf("Interface{Name: %s, IPs: %v, Up: %t, Loopback: %t, Virtual: %t}", 
+	return fmt.Sprintf("Interface{Name: %s, IPs: %v, Up: %t, Loopback: %t, Virtual: %t}",
 		info.Name, info.IPAddresses, info.IsUp, info.IsLoopback, info.IsVirtual)
 }

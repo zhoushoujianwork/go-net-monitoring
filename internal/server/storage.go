@@ -187,7 +187,7 @@ func NewRedisStorage(cfg *config.StorageConfig) (*RedisStorage, error) {
 	})
 
 	ctx := context.Background()
-	
+
 	// 测试连接
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("连接Redis失败: %w", err)

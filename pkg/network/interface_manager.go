@@ -22,7 +22,7 @@ type InterfaceManager struct {
 // NewInterfaceManager 创建网络接口管理器
 func NewInterfaceManager(logger *logrus.Logger) *InterfaceManager {
 	hostname, _ := os.Hostname()
-	
+
 	return &InterfaceManager{
 		interfaces: make(map[string]*InterfaceInfo),
 		logger:     logger,
@@ -189,14 +189,14 @@ func (im *InterfaceManager) GetPrimaryInterfaceName() string {
 // isVirtualInterface 判断是否为虚拟网卡
 func (im *InterfaceManager) isVirtualInterface(name string) bool {
 	virtualPrefixes := []string{
-		"veth",     // Docker veth pairs
-		"tap",      // TAP interfaces
-		"tun",      // TUN interfaces
-		"virbr",    // libvirt bridges
-		"vmnet",    // VMware interfaces
-		"vboxnet",  // VirtualBox interfaces
-		"docker",   // Docker interfaces
-		"br-",      // Bridge interfaces
+		"veth",    // Docker veth pairs
+		"tap",     // TAP interfaces
+		"tun",     // TUN interfaces
+		"virbr",   // libvirt bridges
+		"vmnet",   // VMware interfaces
+		"vboxnet", // VirtualBox interfaces
+		"docker",  // Docker interfaces
+		"br-",     // Bridge interfaces
 	}
 
 	for _, prefix := range virtualPrefixes {
@@ -226,19 +226,19 @@ func (im *InterfaceManager) GetInterfaceStats() map[string]map[string]interface{
 	defer im.mutex.RUnlock()
 
 	stats := make(map[string]map[string]interface{})
-	
+
 	for name, info := range im.interfaces {
 		stats[name] = map[string]interface{}{
-			"name":          info.Name,
-			"ip_addresses":  info.IPAddresses,
-			"mac_address":   info.HardwareAddr,
+			"name":         info.Name,
+			"ip_addresses": info.IPAddresses,
+			"mac_address":  info.HardwareAddr,
 			"mtu":          info.MTU,
 			"is_up":        info.IsUp,
 			"is_virtual":   info.IsVirtual,
 			"last_seen":    info.LastSeen,
 		}
 	}
-	
+
 	return stats
 }
 
@@ -251,6 +251,6 @@ func (im *InterfaceManager) String() string {
 	for name, info := range im.interfaces {
 		interfaces = append(interfaces, fmt.Sprintf("%s(%v)", name, info.IPAddresses))
 	}
-	
+
 	return fmt.Sprintf("InterfaceManager{interfaces: [%s]}", strings.Join(interfaces, ", "))
 }

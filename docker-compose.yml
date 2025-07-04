@@ -30,8 +30,8 @@ services:
     environment:
       - COMPONENT=server
       - REDIS_HOST=redis
-      - DEBUG_MODE=${DEBUG_MODE:-false}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=false
+      - LOG_LEVEL=info
     ports:
       - "8080:8080"
     volumes:
@@ -55,8 +55,8 @@ services:
     environment:
       - COMPONENT=agent
       - HOSTNAME=${HOSTNAME:-netmon-agent}
-      - DEBUG_MODE=${DEBUG_MODE:-false}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=false
+      - LOG_LEVEL=info
     depends_on:
       - server
     network_mode: host  # 需要访问主机网络接口

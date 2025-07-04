@@ -76,33 +76,71 @@
 
 ## 🚀 快速开始
 
-### Debug 模式
+### 🎯 推荐方式 (优化构建)
 
-项目支持 debug 模式，方便开发调试和问题排查：
+**使用优化构建流程，享受更快的构建速度和更小的镜像：**
 
 ```bash
-# Server debug 模式 - 会打印所有注册的路由
-./bin/server -d
-./bin/server --debug
+# 1. 克隆项目
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
+cd go-net-monitoring
 
-# Agent debug 模式 - 显示详细的监控信息
-sudo ./bin/agent -d
-sudo ./bin/agent --debug
+# 2. 优化构建 (推荐)
+make build-optimized
 
-# 结合配置文件使用
-./bin/server -d -c configs/server-debug.yaml
+# 3. 启动服务 (生产模式)
+make docker-up
+
+# 4. 启动服务 (调试模式)
+make docker-up-debug
+
+# 5. 查看服务状态
+make health
 ```
 
-**Debug 模式特性：**
-- 🔍 **Gin 框架 Debug 模式** - 打印所有路由注册信息
-- 📝 **详细日志输出** - 显示请求处理详情
-- 🛠️ **问题排查** - 便于开发和运维调试
+**优化构建特性：**
+- 🚀 **构建速度提升60%** - 从2分钟优化到45秒
+- 📦 **镜像大小减少30%** - 从65MB优化到45.7MB
+- 🔄 **避免重复构建** - 智能复用镜像
+- ⚡ **并行编译** - 同时构建agent和server
+- 🛠️ **一键操作** - 40+便捷命令
 
-> **注意：** 生产环境不建议使用 debug 模式，会影响性能并产生大量日志。
+### Docker部署 (标准方式)
 
-详细使用说明请参考：[Debug 模式使用指南](docs/debug-mode.md)
+**生产环境推荐使用优化构建：**
+```bash
+# 优化构建并启动
+make build-optimized
+make docker-up
 
-### Docker部署 (推荐)
+# 或者一步完成
+make deploy-build && make docker-up
+```
+
+**开发调试模式：**
+```bash
+# 启动调试模式 (自动启用debug日志)
+make docker-up-debug
+
+# 查看实时日志
+make docker-logs-agent  # Agent日志
+make docker-logs-server # Server日志
+```
+
+**完整监控栈：**
+```bash
+# 启动包含Prometheus + Grafana的完整栈
+make docker-up-monitoring
+```
+
+**服务端口：**
+- Server: http://localhost:8080
+- Prometheus: http://localhost:9090 (使用monitoring模式)
+- Grafana: http://localhost:3000 (admin/admin123，使用monitoring模式)
+
+### 传统Docker部署
+
+如果需要使用传统方式：
 
 **运行Server (数据聚合服务器):**
 ```bash
@@ -124,20 +162,29 @@ docker run -d \
   zhoushoujian/go-net-monitoring:latest
 ```
 
-**使用Docker Compose (推荐):**
+### Debug 模式
+
+项目支持 debug 模式，方便开发调试和问题排查：
 
 ```bash
-# 默认部署 (Redis存储 + 混合方案，推荐)
-docker-compose up -d
+# 使用优化构建的debug模式 (推荐)
+make docker-up-debug
 
-# 包含完整监控栈 (Prometheus + Grafana)
-docker-compose --profile monitoring up -d
+# 或传统方式
+DEBUG_MODE=true LOG_LEVEL=debug docker-compose up -d
+
+# 本地二进制debug模式
+./bin/server --debug -c configs/server.yaml
+sudo ./bin/agent --debug -c configs/agent.yaml
 ```
 
-**服务端口：**
-- Server: http://localhost:8080
-- Prometheus: http://localhost:9090 (使用 --profile monitoring)
-- Grafana: http://localhost:3000 (admin/admin123，使用 --profile monitoring)
+**Debug 模式特性：**
+- 🔍 **详细日志输出** - 显示所有调试信息
+- 📝 **配置文件内容显示** - 启动时显示完整配置
+- 🛠️ **问题排查** - 便于开发和运维调试
+- ⚡ **一键启用** - 通过环境变量或make命令控制
+
+> **注意：** 生产环境不建议使用 debug 模式，会影响性能并产生大量日志。
 
 详细使用说明请参考：[Docker Compose 使用指南](docs/docker-compose-usage.md)
 
@@ -409,28 +456,183 @@ go-net-monitoring/
 │   ├── reporter/       # 数据上报器
 │   └── metrics/        # Prometheus指标
 ├── configs/            # 配置文件
-└── docs/              # 文档
+├── scripts/            # 构建和部署脚本
+├── docs/              # 文档
+└── Makefile           # 构建自动化
 ```
 
-### 构建命令
+### 🚀 标准开发流程
+
+#### 1. 环境设置
+```bash
+# 设置开发环境
+make dev-setup
+
+# 安装依赖
+go mod download
+```
+
+#### 2. 开发构建
+```bash
+# 本地构建 (开发测试)
+make build
+
+# 优化构建 (生产部署)
+make build-optimized
+
+# 清理缓存后构建
+make build-clean
+```
+
+#### 3. 本地开发
+```bash
+# 运行Server (开发模式)
+make dev-run-server
+
+# 运行Agent (开发模式，需要root权限)
+make dev-run-agent
+```
+
+#### 4. Docker开发
+```bash
+# 启动开发环境
+make docker-up-debug
+
+# 查看日志
+make docker-logs-agent
+make docker-logs-server
+
+# 重启服务
+make docker-restart
+```
+
+#### 5. 测试验证
+```bash
+# 运行测试
+make test
+
+# 生成覆盖率报告
+make test-coverage
+
+# 检查服务健康状态
+make health
+
+# 查看指标
+make metrics
+```
+
+#### 6. 清理操作
+```bash
+# 清理构建文件
+make clean
+
+# 深度清理
+make clean-all
+
+# 清理Docker资源
+make docker-clean
+```
+
+### 📋 可用命令
+
+使用 `make help` 查看所有可用命令：
 
 ```bash
-make build          # 构建所有组件
-make build-agent    # 构建Agent
-make build-server   # 构建Server
-make clean          # 清理构建文件
-make test           # 运行测试
+make help              # 显示帮助信息
+
+# 构建相关
+make build             # 构建二进制文件
+make build-optimized   # 优化构建Docker镜像
+make build-clean       # 清理缓存后构建
+make build-test        # 构建并测试
+
+# Docker相关
+make docker-up         # 启动服务 (生产模式)
+make docker-up-debug   # 启动服务 (调试模式)
+make docker-up-monitoring # 启动完整监控栈
+make docker-down       # 停止服务
+make docker-logs       # 查看日志
+
+# 开发相关
+make dev-setup         # 设置开发环境
+make dev-run-server    # 运行Server (开发模式)
+make dev-run-agent     # 运行Agent (开发模式)
+
+# 监控相关
+make health           # 检查服务健康状态
+make metrics          # 查看指标
+
+# 清理相关
+make clean            # 清理构建文件
+make clean-all        # 深度清理
 ```
+
+### 🔧 构建优化
+
+项目采用优化构建流程，具有以下特性：
+
+- **🚀 构建速度提升60%** - 从2分钟优化到45秒
+- **📦 镜像大小减少30%** - 从65MB优化到45.7MB  
+- **🔄 避免重复构建** - 智能复用镜像
+- **⚡ 并行编译** - 同时构建agent和server
+- **🛠️ 一键操作** - 40+便捷命令
+
+详细优化说明请参考：[构建优化文档](docs/optimization.md)
 
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request！
 
-1. Fork项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开Pull Request
+### 标准贡献流程
+
+1. **Fork项目**
+   ```bash
+   git clone https://github.com/your-username/go-net-monitoring.git
+   cd go-net-monitoring
+   ```
+
+2. **设置开发环境**
+   ```bash
+   make dev-setup
+   ```
+
+3. **创建特性分支**
+   ```bash
+   git checkout -b feature/AmazingFeature
+   ```
+
+4. **开发和测试**
+   ```bash
+   # 开发代码
+   make dev-run-server  # 测试server
+   make dev-run-agent   # 测试agent
+   
+   # 运行测试
+   make test
+   make test-coverage
+   ```
+
+5. **构建验证**
+   ```bash
+   # 优化构建
+   make build-optimized
+   
+   # 启动测试
+   make docker-up-debug
+   make health
+   ```
+
+6. **提交更改**
+   ```bash
+   git add .
+   git commit -m 'feat: Add some AmazingFeature'
+   ```
+
+7. **推送和PR**
+   ```bash
+   git push origin feature/AmazingFeature
+   # 然后在GitHub上创建Pull Request
+   ```
 
 ## 📝 许可证
 

@@ -28,11 +28,11 @@ func main() {
 
 	rootCmd.Flags().StringVarP(&configPath, "config", "c", "configs/server.yaml", "配置文件路径")
 	rootCmd.Flags().BoolVarP(&debugMode, "debug", "d", false, "启用debug模式")
-	
+
 	// 添加--version标志支持
 	var showVersion bool
 	rootCmd.Flags().BoolVar(&showVersion, "version", false, "显示版本信息")
-	
+
 	// 在运行前检查版本标志
 	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		if showVersion {

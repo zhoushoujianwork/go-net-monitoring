@@ -32,7 +32,7 @@ func NewDNSCache() *DNSCache {
 func (d *DNSCache) Lookup(ip string) string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	// 检查缓存
 	if entry, exists := d.cache[ip]; exists {
 		if time.Since(entry.Timestamp) < d.ttl {
@@ -41,7 +41,7 @@ func (d *DNSCache) Lookup(ip string) string {
 		// 缓存过期，删除
 		delete(d.cache, ip)
 	}
-	
+
 	return ""
 }
 
@@ -51,15 +51,15 @@ func (d *DNSCache) ReverseLookup(ip string) string {
 	if domain := d.Lookup(ip); domain != "" {
 		return domain
 	}
-	
+
 	// 执行反向DNS查询
 	names, err := net.LookupAddr(ip)
 	if err != nil || len(names) == 0 {
 		return ""
 	}
-	
+
 	domain := names[0]
-	
+
 	// 更新缓存
 	d.mu.Lock()
 	d.cache[ip] = &DNSEntry{
@@ -68,7 +68,7 @@ func (d *DNSCache) ReverseLookup(ip string) string {
 		Timestamp: time.Now(),
 	}
 	d.mu.Unlock()
-	
+
 	return domain
 }
 
@@ -76,13 +76,13 @@ func (d *DNSCache) ReverseLookup(ip string) string {
 func (d *DNSCache) Add(domain string, ips []string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	entry := &DNSEntry{
 		Domain:    domain,
 		IPs:       ips,
 		Timestamp: time.Now(),
 	}
-	
+
 	// 为每个IP添加缓存条目
 	for _, ip := range ips {
 		d.cache[ip] = entry
@@ -93,7 +93,7 @@ func (d *DNSCache) Add(domain string, ips []string) {
 func (d *DNSCache) Cleanup() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	now := time.Now()
 	for ip, entry := range d.cache {
 		if now.Sub(entry.Timestamp) > d.ttl {
@@ -134,19 +134,19 @@ func NewConnectionTracker() *ConnectionTracker {
 // Track 跟踪连接
 func (ct *ConnectionTracker) Track(localAddr, remoteAddr, protocol string) {
 	key := ct.makeKey(localAddr, remoteAddr, protocol)
-	
+
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	if conn, exists := ct.connections[key]; exists {
 		conn.LastSeen = time.Now()
 	} else {
 		ct.connections[key] = &ConnectionState{
-			LocalAddr:   localAddr,
-			RemoteAddr:  remoteAddr,
-			Protocol:    protocol,
-			StartTime:   time.Now(),
-			LastSeen:    time.Now(),
+			LocalAddr:  localAddr,
+			RemoteAddr: remoteAddr,
+			Protocol:   protocol,
+			StartTime:  time.Now(),
+			LastSeen:   time.Now(),
 		}
 	}
 }
@@ -154,10 +154,10 @@ func (ct *ConnectionTracker) Track(localAddr, remoteAddr, protocol string) {
 // UpdateBytes 更新字节统计
 func (ct *ConnectionTracker) UpdateBytes(localAddr, remoteAddr, protocol string, bytesSent, bytesRecv uint64) {
 	key := ct.makeKey(localAddr, remoteAddr, protocol)
-	
+
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	if conn, exists := ct.connections[key]; exists {
 		conn.BytesSent += bytesSent
 		conn.BytesReceived += bytesRecv
@@ -168,10 +168,10 @@ func (ct *ConnectionTracker) UpdateBytes(localAddr, remoteAddr, protocol string,
 // UpdatePackets 更新包统计
 func (ct *ConnectionTracker) UpdatePackets(localAddr, remoteAddr, protocol string, packetsSent, packetsRecv uint64) {
 	key := ct.makeKey(localAddr, remoteAddr, protocol)
-	
+
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	if conn, exists := ct.connections[key]; exists {
 		conn.PacketsSent += packetsSent
 		conn.PacketsRecv += packetsRecv
@@ -183,7 +183,7 @@ func (ct *ConnectionTracker) UpdatePackets(localAddr, remoteAddr, protocol strin
 func (ct *ConnectionTracker) GetConnections() map[string]*ConnectionState {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
-	
+
 	result := make(map[string]*ConnectionState)
 	for k, v := range ct.connections {
 		// 深拷贝
@@ -202,7 +202,7 @@ func (ct *ConnectionTracker) GetConnections() map[string]*ConnectionState {
 			PacketsRecv:   v.PacketsRecv,
 		}
 	}
-	
+
 	return result
 }
 
@@ -210,7 +210,7 @@ func (ct *ConnectionTracker) GetConnections() map[string]*ConnectionState {
 func (ct *ConnectionTracker) Cleanup(timeout time.Duration) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	now := time.Now()
 	for key, conn := range ct.connections {
 		if now.Sub(conn.LastSeen) > timeout {
@@ -228,7 +228,7 @@ func (ct *ConnectionTracker) makeKey(localAddr, remoteAddr, protocol string) str
 func (d *DNSCache) SetIPDomainMapping(ip, domain string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	// 为这个IP创建或更新DNS条目
 	entry, exists := d.cache[ip]
 	if !exists {
@@ -249,16 +249,16 @@ func (d *DNSCache) SetIPDomainMapping(ip, domain string) {
 func (d *DNSCache) GetOriginalDomain(ip string) (string, bool) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	entry, exists := d.cache[ip]
 	if !exists {
 		return "", false
 	}
-	
+
 	// 检查是否过期
 	if time.Since(entry.Timestamp) > d.ttl {
 		return "", false
 	}
-	
+
 	return entry.Domain, true
 }

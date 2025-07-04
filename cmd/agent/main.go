@@ -28,11 +28,11 @@ func main() {
 
 	rootCmd.Flags().StringVarP(&configPath, "config", "c", "configs/agent.yaml", "配置文件路径")
 	rootCmd.Flags().BoolVarP(&debugMode, "debug", "d", false, "启用debug模式")
-	
+
 	// 添加--version标志支持
 	var showVersion bool
 	rootCmd.Flags().BoolVar(&showVersion, "version", false, "显示版本信息")
-	
+
 	// 在运行前检查版本标志
 	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		if showVersion {
@@ -71,11 +71,11 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("加载配置失败: %w", err)
 	}
-	
+
 	// 如果启用了debug模式，设置日志级别
 	if debugMode {
 		cfg.Log.Level = "debug"
-		cfg.Log.Format = "text"  // debug模式使用text格式更易读
+		cfg.Log.Format = "text" // debug模式使用text格式更易读
 	}
 
 	// 创建Agent

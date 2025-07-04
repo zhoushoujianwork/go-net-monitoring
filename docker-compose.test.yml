@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Redis 数据库 (测试环境)
+  redis-test:
+    image: redis:7-alpine
+    container_name: netmon-redis-test
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly no --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - netmon-test
+
+  # 网络监控服务器 (测试环境)
+  server-test:
+    image: go-net-monitoring:test
+    container_name: netmon-server-test
+    environment:
+      - COMPONENT=server
+      - REDIS_HOST=redis-test
+      - REDIS_PORT=6379
+      - LOG_LEVEL=debug
+      - DEBUG_MODE=true
+    ports:
+      - "8081:8080"
+    depends_on:
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - netmon-test
+
+  # 网络监控代理 (测试环境)
+  agent-test:
+    image: go-net-monitoring:test
+    container_name: netmon-agent-test
+    environment:
+      - COMPONENT=agent
+      - HOSTNAME=netmon-agent-test
+      - SERVER_URL=http://server-test:8080/api/v1/metrics
+      - LOG_LEVEL=debug
+      - DEBUG_MODE=true
+    depends_on:
+      server-test:
+        condition: service_healthy
+    # 测试环境不使用host网络模式，避免权限问题
+    networks:
+      - netmon-test
+    # 测试环境不需要特权模式
+    # privileged: false
+    healthcheck:
+      test: ["CMD", "pgrep", "agent"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+networks:
+  netmon-test:
+    driver: bridge

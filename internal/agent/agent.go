@@ -24,15 +24,15 @@ import (
 
 // Agent 网络监控代理
 type Agent struct {
-	config           *config.AgentConfig
-	logger           *logrus.Logger
-	collector        interface {
+	config    *config.AgentConfig
+	logger    *logrus.Logger
+	collector interface {
 		Start() error
 		Stop() error
 		GetMetrics() common.NetworkMetrics
 	}
 	reporter         *reporter.Reporter
-	interfaceManager *network.InterfaceManager  // 新增：网络接口管理器
+	interfaceManager *network.InterfaceManager // 新增：网络接口管理器
 	ctx              context.Context
 	cancel           context.CancelFunc
 	wg               sync.WaitGroup
@@ -51,14 +51,14 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 
 	// 创建网络接口管理器
 	interfaceManager := network.NewInterfaceManager(logger)
-	
+
 	// 刷新网络接口信息
 	if err := interfaceManager.RefreshInterfaces(); err != nil {
 		logger.WithError(err).Warn("刷新网络接口信息失败，将使用默认值")
 	} else {
 		// 记录检测到的网络接口
 		logger.WithField("interfaces", interfaceManager.String()).Info("检测到网络接口")
-		
+
 		// 如果配置中的接口为空或为默认值，尝试自动检测
 		if cfg.Monitor.Interface == "" || cfg.Monitor.Interface == "eth0" {
 			if primaryInterface := interfaceManager.GetPrimaryInterfaceName(); primaryInterface != "unknown" {
@@ -74,7 +74,7 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 		Stop() error
 		GetMetrics() common.NetworkMetrics
 	}
-	
+
 	// 根据环境选择收集器类型
 	// 在开发环境或没有sudo权限时使用测试收集器
 	if os.Getenv("TEST_MODE") == "true" || os.Getenv("DEV_MODE") == "true" || os.Geteuid() != 0 {
@@ -107,7 +107,7 @@ func NewAgent(cfg *config.AgentConfig) (*Agent, error) {
 		logger:           logger,
 		collector:        coll,
 		reporter:         reporter,
-		interfaceManager: interfaceManager,  // 新增
+		interfaceManager: interfaceManager, // 新增
 		ctx:              ctx,
 		cancel:           cancel,
 		startTime:        time.Now(),
@@ -283,7 +283,7 @@ func (a *Agent) reportMetrics() {
 
 	// 获取当前指标
 	metrics := a.collector.GetMetrics()
-	
+
 	// 设置正确的接口信息
 	if metrics.Interface == "" || metrics.Interface == "unknown" {
 		// 尝试从配置获取接口名
@@ -294,9 +294,9 @@ func (a *Agent) reportMetrics() {
 			metrics.Interface = a.interfaceManager.GetPrimaryInterfaceName()
 		}
 	}
-	
-	a.logger.Debugf("获取到指标数据: 接口=%s, 连接数=%d, 发送字节=%d, IP数量=%d, 域名数量=%d", 
-		metrics.Interface, metrics.TotalConnections, metrics.TotalBytesSent, 
+
+	a.logger.Debugf("获取到指标数据: 接口=%s, 连接数=%d, 发送字节=%d, IP数量=%d, 域名数量=%d",
+		metrics.Interface, metrics.TotalConnections, metrics.TotalBytesSent,
 		len(metrics.IPsAccessed), len(metrics.DomainsAccessed))
 
 	// 打印一些具体的IP和域名统计
@@ -311,7 +311,7 @@ func (a *Agent) reportMetrics() {
 			}
 		}
 	}
-	
+
 	if len(metrics.DomainsAccessed) > 0 {
 		a.logger.Debug("域名访问统计:")
 		count := 0
@@ -381,10 +381,10 @@ func (a *Agent) GetStatus() map[string]interface{} {
 	reporterStats := a.reporter.GetStats()
 
 	return map[string]interface{}{
-		"status":          "running",
-		"uptime":          uptime.String(),
-		"start_time":      a.startTime.Format(time.RFC3339),
-		"reporter_stats":  reporterStats,
+		"status":         "running",
+		"uptime":         uptime.String(),
+		"start_time":     a.startTime.Format(time.RFC3339),
+		"reporter_stats": reporterStats,
 		"config": map[string]interface{}{
 			"server_url":      a.config.Reporter.ServerURL,
 			"report_interval": a.config.Monitor.ReportInterval.String(),
@@ -438,24 +438,24 @@ func setupLogger(logger *logrus.Logger, cfg *config.LogConfig) error {
 // printNetworkInterfaces 打印网络接口信息
 func (a *Agent) printNetworkInterfaces() error {
 	a.logger.Info("=== 网络接口信息 ===")
-	
+
 	// 获取所有网络接口
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		return err
 	}
-	
+
 	a.logger.Infof("发现 %d 个网络接口:", len(interfaces))
-	
+
 	var targetInterface *net.Interface
 	for _, iface := range interfaces {
 		status := "DOWN"
 		if iface.Flags&net.FlagUp != 0 {
 			status = "UP"
 		}
-		
+
 		a.logger.Infof("  %s: %s (%s) - %s", iface.Name, iface.HardwareAddr, status, iface.Flags)
-		
+
 		// 获取IP地址
 		addrs, err := iface.Addrs()
 		if err == nil && len(addrs) > 0 {
@@ -463,19 +463,19 @@ func (a *Agent) printNetworkInterfaces() error {
 				a.logger.Infof("    IP: %s", addr.String())
 			}
 		}
-		
+
 		// 检查是否是目标接口
 		if iface.Name == a.config.Monitor.Interface {
 			targetInterface = &iface
 		}
 	}
-	
+
 	a.logger.Infof("目标监控接口: %s", a.config.Monitor.Interface)
 	if targetInterface != nil {
 		a.logger.Infof("✅ 接口 %s 存在且可用", targetInterface.Name)
 		a.logger.Infof("   MAC地址: %s", targetInterface.HardwareAddr)
 		a.logger.Infof("   状态: %s", targetInterface.Flags)
-		
+
 		// 获取接口统计信息
 		if stats, err := a.getInterfaceStats(a.config.Monitor.Interface); err == nil {
 			a.logger.Infof("   当前统计: 接收 %d 字节, 发送 %d 字节", stats.BytesReceived, stats.BytesSent)
@@ -489,9 +489,10 @@ func (a *Agent) printNetworkInterfaces() error {
 			}
 		}
 	}
-	
+
 	return nil
 }
+
 // NetworkStats 网络统计信息
 type NetworkStats struct {
 	Interface       string
@@ -511,7 +512,7 @@ func (a *Agent) getInterfaceStats(interfaceName string) (*NetworkStats, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	
+
 	// 跳过前两行（标题行）
 	scanner.Scan()
 	scanner.Scan()

@@ -137,7 +137,7 @@ func SimpleLoadServerConfig(configPath string) (*ServerAppConfig, error) {
 	if config.Storage.MaxEntries == 0 {
 		config.Storage.MaxEntries = 10000
 	}
-	
+
 	// Redis默认配置
 	if config.Storage.Redis.Host == "" {
 		config.Storage.Redis.Host = "localhost"
@@ -151,7 +151,7 @@ func SimpleLoadServerConfig(configPath string) (*ServerAppConfig, error) {
 	if config.Storage.Redis.Timeout == 0 {
 		config.Storage.Redis.Timeout = 5 * time.Second
 	}
-	
+
 	if config.Log.Level == "" {
 		config.Log.Level = "info"
 	}
@@ -164,6 +164,7 @@ func SimpleLoadServerConfig(configPath string) (*ServerAppConfig, error) {
 
 	return &config, nil
 }
+
 // parsePort 解析端口号
 func parsePort(s string) (int, error) {
 	var port int
