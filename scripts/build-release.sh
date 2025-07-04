@@ -68,21 +68,59 @@ build_servers() {
     done
 }
 
-# 构建本地Agent
-build_local_agent() {
-    log_info "构建本地Agent..."
+# 构建所有平台的Agent
+build_agents() {
+    log_info "构建Agent (所有平台)..."
     
-    local current_os=$(go env GOOS)
-    local current_arch=$(go env GOARCH)
+    local platforms=(
+        "linux/amd64"
+        "linux/arm64"
+        "darwin/amd64"
+        "darwin/arm64"
+        "windows/amd64"
+    )
+    
     local ldflags="-s -w -X main.version=$VERSION -X main.buildTime=$BUILD_TIME -X main.gitCommit=$GIT_COMMIT"
     
-    if CGO_ENABLED=1 go build -ldflags "$ldflags" -o "bin/agent-$current_os-$current_arch" ./cmd/agent 2>/dev/null; then
-        log_success "本地Agent构建成功: bin/agent-$current_os-$current_arch"
-        return 0
-    else
-        log_warn "本地Agent构建失败 - 可能缺少libpcap开发库"
-        return 1
-    fi
+    for platform in "${platforms[@]}"; do
+        IFS='/' read -r goos goarch <<< "$platform"
+        local output="bin/agent-$goos-$goarch"
+        
+        if [ "$goos" = "windows" ]; then
+            output="$output.exe"
+        fi
+        
+        log_info "尝试构建Agent ($goos/$goarch)..."
+        
+        if [ "$goos" = "windows" ]; then
+            # Windows使用纯Go实现，可以交叉编译
+            if CGO_ENABLED=1 GOOS=$goos GOARCH=$goarch go build \
+                -ldflags "$ldflags" \
+                -o "$output" \
+                ./cmd/agent 2>/dev/null; then
+                log_success "Agent构建成功: $output (Windows使用纯Go实现)"
+            else
+                log_warn "Agent构建失败 ($goos/$goarch)"
+                echo "# Agent需要在$goos/$goarch平台上构建" > "$output.build-required"
+            fi
+        else
+            # Unix/Linux/macOS需要libpcap开发库
+            log_info "Unix/Linux/macOS平台需要libpcap开发库进行编译"
+            if CGO_ENABLED=1 GOOS=$goos GOARCH=$goarch go build \
+                -ldflags "$ldflags" \
+                -o "$output" \
+                ./cmd/agent 2>/dev/null; then
+                log_success "Agent构建成功: $output"
+            else
+                log_warn "Agent构建失败 ($goos/$goarch) - 需要libpcap开发库"
+                echo "# Agent需要在$goos/$goarch平台上构建，需要libpcap开发库" > "$output.build-required"
+            fi
+        fi
+    done
+    
+    log_info "Agent构建说明:"
+    log_info "  ✅ Windows: 使用纯Go实现，可交叉编译"
+    log_info "  ⚠️  Unix/Linux/macOS: 需要libpcap开发库，建议目标平台构建"
 }
 
 # 创建发布包
@@ -101,17 +139,24 @@ create_release_packages() {
     )
     
     for platform in "${platforms[@]}"; do
-        create_server_package "$platform"
+        # 检查是否有对应的Agent
+        local has_agent=false
+        if [[ $platform == *"windows"* ]]; then
+            if [ -f "bin/agent-$platform.exe" ]; then
+                has_agent=true
+            fi
+        else
+            if [ -f "bin/agent-$platform" ]; then
+                has_agent=true
+            fi
+        fi
+        
+        if [ "$has_agent" = true ]; then
+            create_full_package "$platform"
+        else
+            create_server_package "$platform"
+        fi
     done
-    
-    # 如果本地Agent构建成功，创建完整包
-    local current_os=$(go env GOOS)
-    local current_arch=$(go env GOARCH)
-    local current_platform="$current_os-$current_arch"
-    
-    if [ -f "bin/agent-$current_platform" ]; then
-        create_full_package "$current_platform"
-    fi
 }
 
 # 创建Server发布包
@@ -566,12 +611,8 @@ main() {
     # 构建Server (所有平台)
     build_servers
     
-    # 尝试构建本地Agent (不影响整体流程)
-    if build_local_agent; then
-        log_info "本地Agent构建成功，将创建完整发布包"
-    else
-        log_info "本地Agent构建失败，将只创建Server发布包"
-    fi
+    # 构建Agent (所有平台，尽力而为)
+    build_agents
     
     # 创建发布包
     create_release_packages
