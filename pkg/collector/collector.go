@@ -50,6 +50,8 @@ type NetworkMetrics struct {
 	DomainTraffic    map[string]*common.DomainTrafficStats
 	ProcessStats     map[int]*common.ProcessStats
 	LastUpdate       time.Time
+	// 新增：流量方向统计
+	DirectionStats   map[string]uint64  // 统计各个方向的流量数量
 }
 
 // NewTestCollector 创建测试收集器（用于测试环境）
@@ -853,6 +855,14 @@ func (c *Collector) updateMetrics(event *common.NetworkEvent) {
 	c.metrics.TotalPacketsSent += event.PacketsSent
 	c.metrics.TotalPacketsRecv += event.PacketsRecv
 
+	// 更新流量方向统计
+	c.metrics.DirectionStats[event.Direction]++
+	
+	// 每100个事件打印一次方向统计
+	if c.metrics.TotalConnections%100 == 0 {
+		c.logger.Infof("流量方向统计: %+v", c.metrics.DirectionStats)
+	}
+
 	// 更新域名访问统计
 	if event.Domain != "" {
 		c.metrics.DomainsAccessed[event.Domain]++
@@ -942,6 +952,7 @@ func NewNetworkMetrics() *NetworkMetrics {
 		PortStats:       make(map[int]uint64),
 		DomainTraffic:   make(map[string]*common.DomainTrafficStats),
 		ProcessStats:    make(map[int]*common.ProcessStats),
+		DirectionStats:  make(map[string]uint64),
 		LastUpdate:      time.Now(),
 	}
 }
