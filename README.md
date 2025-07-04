@@ -2,8 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.19+-blue.svg)](https://golang.org)
+[![Docker](https://img.shields.io/badge/Docker-Required-blue.svg)](https://www.docker.com/)
 
 一个用Go语言开发的高性能网络流量监控系统，支持实时监控主机网络流量，包括域名访问统计、流量分析和Prometheus指标导出。
+
+> **📦 部署方式说明**: 本项目仅支持容器化部署，不提供二进制文件。这是为了解决CGO依赖和跨平台兼容性问题。详见：[容器化部署说明](docs/container-only-deployment.md)
 
 ![网络流量监控](docs/images/全面的网络流量监控.png)
 
@@ -17,6 +20,7 @@
 - 🔧 **灵活配置** - 支持YAML配置文件，可自定义监控规则
 - 🏗️ **分布式架构** - Agent/Server架构，支持多节点部署
 - 📱 **专业可视化** - 提供多种专业级Grafana Dashboard
+- 🐳 **容器化部署** - 统一的Docker部署方式，解决依赖问题
 
 ## 📈 Grafana Dashboard
 
@@ -85,8 +89,8 @@
 git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
 cd go-net-monitoring
 
-# 2. 优化构建 (推荐)
-make build-optimized
+# 2. 构建Docker镜像
+make docker-build
 
 # 3. 启动服务 (生产模式)
 make docker-up
@@ -103,18 +107,18 @@ make health
 - 📦 **镜像大小减少30%** - 从65MB优化到45.7MB
 - 🔄 **避免重复构建** - 智能复用镜像
 - ⚡ **并行编译** - 同时构建agent和server
-- 🛠️ **一键操作** - 40+便捷命令
+- 🛠️ **一键操作** - 便捷命令
 
-### Docker部署 (标准方式)
+### Docker部署
 
 **生产环境推荐使用优化构建：**
 ```bash
-# 优化构建并启动
-make build-optimized
+# 构建并启动
+make docker-build
 make docker-up
 
 # 或者一步完成
-make deploy-build && make docker-up
+make docker-build && make docker-up
 ```
 
 **开发调试模式：**
@@ -172,10 +176,6 @@ make docker-up-debug
 
 # 或传统方式
 DEBUG_MODE=true LOG_LEVEL=debug docker-compose up -d
-
-# 本地二进制debug模式
-./bin/server --debug -c configs/server.yaml
-sudo ./bin/agent --debug -c configs/agent.yaml
 ```
 
 **Debug 模式特性：**
@@ -233,133 +233,6 @@ kubectl apply -f https://raw.githubusercontent.com/zhoushoujian/go-net-monitorin
 
 - Docker 或 Kubernetes 集群
 - Agent需要特权模式进行网络监控
-
-### 安装依赖
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get update
-sudo apt-get install libpcap-dev
-```
-
-**CentOS/RHEL:**
-```bash
-sudo yum install libpcap-devel
-```
-
-**macOS:**
-```bash
-brew install libpcap
-```
-
-### 编译安装
-
-#### 🚀 推荐方式 (发布包)
-
-**直接使用预编译的发布包：**
-
-```bash
-# 1. 下载对应平台的Server发布包
-# Linux AMD64: go-net-monitoring-server-linux-amd64.tar.gz
-# Linux ARM64: go-net-monitoring-server-linux-arm64.tar.gz
-# macOS Intel: go-net-monitoring-server-darwin-amd64.tar.gz
-# macOS Apple Silicon: go-net-monitoring-server-darwin-arm64.tar.gz
-# Windows: go-net-monitoring-server-windows-amd64.zip
-
-# 2. 解压并运行Server
-tar -xzf go-net-monitoring-server-linux-amd64.tar.gz
-cd go-net-monitoring-server-linux-amd64
-./start-server.sh
-
-# 3. 在监控节点构建Agent
-git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
-cd go-net-monitoring
-make build-agent  # 需要安装libpcap-dev
-sudo ./agent --config configs/agent.yaml
-```
-
-**发布包特性：**
-- 📦 **Server**: 跨平台预编译，无需依赖
-- 🔧 **Agent**: 需要在目标节点构建 (依赖libpcap)
-- 📝 **文档**: 包含完整的使用说明
-- 🚀 **启动脚本**: 一键启动服务
-
-#### 跨平台构建 (开发者)
-
-**构建所有平台的发布包：**
-
-```bash
-# 克隆项目
-git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
-cd go-net-monitoring
-
-# 构建发布包 (推荐)
-make build-release
-
-# 构建产物:
-# bin/ - 各平台二进制文件
-# dist/ - 发布包 (.tar.gz/.zip)
-```
-
-**构建特定平台：**
-```bash
-make build-cross-darwin    # macOS (Intel + Apple Silicon)
-make build-cross-linux     # Linux (AMD64 + ARM64)
-make build-cross-windows   # Windows (AMD64)
-```
-
-#### Agent构建指南
-
-由于Agent需要CGO和libpcap库，需要在目标平台构建：
-
-**Linux (Ubuntu/Debian):**
-```bash
-sudo apt-get install libpcap-dev
-git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
-cd go-net-monitoring
-make build-agent
-sudo ./agent --config configs/agent.yaml
-```
-
-**macOS:**
-```bash
-brew install libpcap
-git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
-cd go-net-monitoring
-make macos-build
-sudo ./agent --config configs/agent-macos.yaml
-```
-
-**Windows:**
-```bash
-# 安装Npcap: https://npcap.com/
-# 使用MSYS2或Visual Studio构建
-# 详见: docs/agent-build-guide.md
-```
-
-**Docker方式 (推荐):**
-```bash
-docker run -d \
-  --name netmon-agent \
-  --privileged \
-  --network host \
-  -e COMPONENT=agent \
-  -e SERVER_URL=http://your-server:8080/api/v1/metrics \
-  zhoushoujian/go-net-monitoring:latest
-```
-
-详细构建说明请参考：[Agent构建指南](docs/agent-build-guide.md)
-
-#### 传统构建方式
-
-```bash
-# 编译
-make build
-
-# 或者分别编译
-make build-agent  # 编译Agent
-make build-server # 编译Server
-```
 
 ### 配置文件
 
@@ -426,16 +299,6 @@ log:
   output: "stdout"
 ```
 
-### 运行
-
-```bash
-# 启动Server
-./bin/server --config configs/server.yaml
-
-# 启动Agent (需要root权限)
-sudo ./bin/agent --config configs/agent.yaml
-```
-
 ### 查看指标
 
 ```bash
@@ -447,6 +310,9 @@ curl http://localhost:8080/metrics | grep network_domains_accessed_total
 
 # 查看域名流量统计
 curl http://localhost:8080/metrics | grep network_domain_bytes
+
+# 使用Make命令快速查看
+make metrics
 ```
 
 ## 📈 Grafana集成
@@ -550,80 +416,68 @@ go-net-monitoring/
 │   ├── reporter/       # 数据上报器
 │   └── metrics/        # Prometheus指标
 ├── configs/            # 配置文件
-├── scripts/            # 构建和部署脚本
+├── docker/             # Docker相关文件
 ├── docs/              # 文档
 └── Makefile           # 构建自动化
 ```
 
-### 🚀 标准开发流程
+### 🚀 容器化开发流程
 
-#### 1. 环境设置
+#### 1. 环境准备
 ```bash
-# 设置开发环境
-make dev-setup
+# 克隆项目
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
+cd go-net-monitoring
 
-# 安装依赖
-go mod download
+# 查看可用命令
+make help
 ```
 
-#### 2. 开发构建
+#### 2. 构建和启动
 ```bash
-# 本地构建 (开发测试)
-make build
+# 构建Docker镜像
+make docker-build
 
-# 优化构建 (生产部署)
-make build-optimized
-
-# 清理缓存后构建
-make build-clean
-```
-
-#### 3. 本地开发
-```bash
-# 运行Server (开发模式)
-make dev-run-server
-
-# 运行Agent (开发模式，需要root权限)
-make dev-run-agent
-```
-
-#### 4. Docker开发
-```bash
-# 启动开发环境
+# 启动开发环境 (调试模式)
 make docker-up-debug
 
-# 查看日志
-make docker-logs-agent
-make docker-logs-server
-
-# 重启服务
-make docker-restart
+# 查看服务状态
+make health
 ```
 
-#### 5. 测试验证
+#### 3. 开发调试
+```bash
+# 查看实时日志
+make docker-logs          # 所有服务日志
+make docker-logs-agent    # Agent日志
+make docker-logs-server   # Server日志
+
+# 进入容器调试
+make dev-shell-server     # 进入Server容器
+make dev-shell-agent      # 进入Agent容器
+```
+
+#### 4. 测试验证
 ```bash
 # 运行测试
 make test
 
-# 生成覆盖率报告
-make test-coverage
-
 # 检查服务健康状态
 make health
 
-# 查看指标
+# 查看监控指标
 make metrics
 ```
 
-#### 6. 清理操作
+#### 5. 服务管理
 ```bash
-# 清理构建文件
-make clean
+# 重启服务
+make docker-restart
 
-# 深度清理
-make clean-all
+# 停止服务
+make docker-down
 
-# 清理Docker资源
+# 清理资源
 make docker-clean
 ```
 
@@ -634,50 +488,64 @@ make docker-clean
 ```bash
 make help              # 显示帮助信息
 
-# 构建相关
-make build             # 构建二进制文件
-make build-optimized   # 优化构建Docker镜像
-make build-clean       # 清理缓存后构建
-make build-test        # 构建并测试
-
 # Docker相关
+make docker-build      # 构建Docker镜像
 make docker-up         # 启动服务 (生产模式)
 make docker-up-debug   # 启动服务 (调试模式)
-make docker-up-monitoring # 启动完整监控栈
 make docker-down       # 停止服务
 make docker-logs       # 查看日志
-
-# 开发相关
-make dev-setup         # 设置开发环境
-make dev-run-server    # 运行Server (开发模式)
-make dev-run-agent     # 运行Agent (开发模式)
 
 # 监控相关
 make health           # 检查服务健康状态
 make metrics          # 查看指标
 
 # 清理相关
-make clean            # 清理构建文件
-make clean-all        # 深度清理
+make docker-clean     # 清理Docker资源
+make clean            # 清理所有资源
 ```
 
-### 🔧 构建优化
+### 🔧 开发最佳实践
 
-项目采用优化构建流程，具有以下特性：
+#### 1. 调试模式开发
+```bash
+# 启用详细日志
+make docker-up-debug
 
-- **🚀 构建速度提升60%** - 从2分钟优化到45秒
-- **📦 镜像大小减少30%** - 从65MB优化到45.7MB  
-- **🔄 避免重复构建** - 智能复用镜像
-- **⚡ 并行编译** - 同时构建agent和server
-- **🛠️ 一键操作** - 40+便捷命令
+# 实时查看日志
+make dev-logs
 
-详细优化说明请参考：[构建优化文档](docs/optimization.md)
+# 修改代码后重新构建
+make docker-build
+make docker-restart
+```
+
+#### 2. 配置修改
+```bash
+# 修改配置文件
+vim configs/agent.yaml
+vim configs/server.yaml
+
+# 重启服务使配置生效
+make docker-restart
+```
+
+#### 3. 问题排查
+```bash
+# 检查容器状态
+docker-compose ps
+
+# 查看详细日志
+make docker-logs-agent | grep ERROR
+
+# 进入容器调试
+make dev-shell-agent
+```
 
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request！
 
-### 标准贡献流程
+### 容器化贡献流程
 
 1. **Fork项目**
    ```bash
@@ -685,44 +553,39 @@ make clean-all        # 深度清理
    cd go-net-monitoring
    ```
 
-2. **设置开发环境**
-   ```bash
-   make dev-setup
-   ```
-
-3. **创建特性分支**
+2. **创建特性分支**
    ```bash
    git checkout -b feature/AmazingFeature
    ```
 
-4. **开发和测试**
+3. **开发和测试**
    ```bash
-   # 开发代码
-   make dev-run-server  # 测试server
-   make dev-run-agent   # 测试agent
+   # 构建Docker镜像
+   make docker-build
+   
+   # 启动开发环境
+   make docker-up-debug
    
    # 运行测试
    make test
-   make test-coverage
    ```
 
-5. **构建验证**
+4. **验证功能**
    ```bash
-   # 优化构建
-   make build-optimized
-   
-   # 启动测试
-   make docker-up-debug
+   # 检查服务状态
    make health
+   
+   # 查看日志
+   make docker-logs
    ```
 
-6. **提交更改**
+5. **提交更改**
    ```bash
    git add .
    git commit -m 'feat: Add some AmazingFeature'
    ```
 
-7. **推送和PR**
+6. **推送和PR**
    ```bash
    git push origin feature/AmazingFeature
    # 然后在GitHub上创建Pull Request
