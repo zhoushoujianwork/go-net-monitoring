@@ -234,18 +234,29 @@ build_command() {
 
 # 启动应用
 start_application() {
-    log_info "启动 $COMPONENT..."
+    echo "[INFO] 启动 $COMPONENT..."
     
-    COMMAND=$(build_command)
+    # 检查二进制文件是否存在
+    BINARY_PATH="/usr/local/bin/$COMPONENT"
+    if [ ! -f "$BINARY_PATH" ]; then
+        echo "[ERROR] 二进制文件不存在: $BINARY_PATH"
+        exit 1
+    fi
     
-    # 启动应用
-    log_success "正在启动应用..."
+    echo "[INFO] 二进制文件: $BINARY_PATH"
+    echo "[INFO] 配置文件: $CONFIG_FILE"
+    echo "[INFO] Debug模式: $DEBUG_MODE"
+    echo "[INFO] 用户: $(whoami)"
+    
+    echo "[SUCCESS] 正在启动应用..."
     
     # 直接执行命令，避免颜色代码问题
     if [ "$DEBUG_MODE" = "true" ]; then
-        exec /usr/local/bin/$COMPONENT --debug --config "$CONFIG_FILE"
+        echo "[INFO] 启动命令: $BINARY_PATH --debug --config $CONFIG_FILE"
+        exec "$BINARY_PATH" --debug --config "$CONFIG_FILE"
     else
-        exec /usr/local/bin/$COMPONENT --config "$CONFIG_FILE"
+        echo "[INFO] 启动命令: $BINARY_PATH --config $CONFIG_FILE"
+        exec "$BINARY_PATH" --config "$CONFIG_FILE"
     fi
 }
 
