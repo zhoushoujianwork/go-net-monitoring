@@ -76,7 +76,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # 设置默认环境变量
 ENV COMPONENT=server
-ENV CONFIG_FILE=/app/configs/server.yaml
 ENV LOG_LEVEL=info
 
 # 使用启动脚本

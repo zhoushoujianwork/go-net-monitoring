@@ -22,7 +22,7 @@ services:
 
   # 网络监控服务器
   server:
-    image: zhoushoujian/go-net-monitoring:latest
+    build: .
     container_name: netmon-server
     environment:
       - COMPONENT=server
@@ -44,7 +44,7 @@ services:
 
   # 网络监控代理
   agent:
-    image: zhoushoujian/go-net-monitoring:latest
+    build: .
     container_name: netmon-agent
     environment:
       - COMPONENT=agent
