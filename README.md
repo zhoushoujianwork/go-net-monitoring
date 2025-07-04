@@ -254,11 +254,63 @@ brew install libpcap
 
 ### 编译安装
 
+#### 跨平台构建 (推荐)
+
+**使用便捷的跨平台构建脚本：**
+
 ```bash
 # 克隆项目
 git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
 cd go-net-monitoring
 
+# 构建当前平台
+make build-cross-current
+
+# 构建所有平台
+make build-all
+
+# 构建特定平台
+make build-cross-darwin    # macOS (Intel + Apple Silicon)
+make build-cross-linux     # Linux (AMD64 + ARM64)
+make build-cross-windows   # Windows (AMD64)
+```
+
+**构建产物：**
+- `bin/` - 二进制文件
+- `dist/` - 发布包 (.tar.gz/.zip)
+
+#### 平台特定构建
+
+**macOS构建：**
+```bash
+# 环境设置
+make macos-setup
+
+# 构建macOS版本
+make macos-build
+
+# 运行
+make macos-run-server    # Server
+make macos-run-agent     # Agent (需要sudo)
+```
+
+**Linux构建：**
+```bash
+# 安装依赖
+sudo apt-get install libpcap-dev  # Ubuntu/Debian
+sudo yum install libpcap-devel    # CentOS/RHEL
+
+# 构建
+make build
+
+# 运行
+./bin/server --config configs/server.yaml
+sudo ./bin/agent --config configs/agent.yaml
+```
+
+#### 传统构建方式
+
+```bash
 # 编译
 make build
 

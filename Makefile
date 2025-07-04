@@ -6,12 +6,146 @@ help: ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # 构建相关
-build: ## 构建二进制文件
+build: ## 构建二进制文件 (当前平台)
 	@echo "构建二进制文件..."
 	@mkdir -p bin
 	CGO_ENABLED=1 go build -o bin/agent ./cmd/agent
 	CGO_ENABLED=0 go build -o bin/server ./cmd/server
 	@echo "构建完成: bin/agent, bin/server"
+
+build-all: ## 构建所有平台的二进制文件
+	@echo "构建所有平台的二进制文件..."
+	@./scripts/build-cross-platform.sh --all
+
+build-cross: ## 跨平台构建 (使用脚本)
+	@./scripts/build-cross-platform.sh $(ARGS)
+
+build-cross-current: ## 构建当前平台 (使用脚本)
+	@./scripts/build-cross-platform.sh --current
+
+build-cross-linux: ## 构建Linux版本 (使用脚本)
+	@./scripts/build-cross-platform.sh --linux
+
+build-cross-darwin: ## 构建macOS版本 (使用脚本)
+	@./scripts/build-cross-platform.sh --darwin
+
+build-cross-windows: ## 构建Windows版本 (使用脚本)
+	@./scripts/build-cross-platform.sh --windows
+
+# Linux 构建
+build-linux: build-linux-amd64 build-linux-arm64 ## 构建Linux版本 (amd64 + arm64)
+
+build-linux-amd64: ## 构建Linux AMD64版本
+	@echo "构建Linux AMD64版本..."
+	@mkdir -p bin dist
+	@if pkg-config --exists libpcap 2>/dev/null; then \
+		echo "libpcap可用，构建完整版本"; \
+		CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o bin/agent-linux-amd64 ./cmd/agent; \
+	else \
+		echo "警告: libpcap不可用，跳过Agent构建"; \
+		echo "请安装libpcap: sudo apt-get install libpcap-dev (Ubuntu) 或 sudo yum install libpcap-devel (CentOS)"; \
+	fi
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/server-linux-amd64 ./cmd/server
+	@if [ -f bin/agent-linux-amd64 ] && [ -f bin/server-linux-amd64 ]; then \
+		cd bin && tar -czf ../dist/go-net-monitoring-linux-amd64.tar.gz agent-linux-amd64 server-linux-amd64; \
+	elif [ -f bin/server-linux-amd64 ]; then \
+		cd bin && tar -czf ../dist/go-net-monitoring-linux-amd64.tar.gz server-linux-amd64; \
+	fi
+	@echo "Linux AMD64构建完成"
+
+build-linux-arm64: ## 构建Linux ARM64版本
+	@echo "构建Linux ARM64版本..."
+	@mkdir -p bin dist
+	@if pkg-config --exists libpcap 2>/dev/null; then \
+		echo "libpcap可用，构建完整版本"; \
+		CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -o bin/agent-linux-arm64 ./cmd/agent; \
+	else \
+		echo "警告: libpcap不可用，跳过Agent构建"; \
+	fi
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/server-linux-arm64 ./cmd/server
+	@if [ -f bin/agent-linux-arm64 ] && [ -f bin/server-linux-arm64 ]; then \
+		cd bin && tar -czf ../dist/go-net-monitoring-linux-arm64.tar.gz agent-linux-arm64 server-linux-arm64; \
+	elif [ -f bin/server-linux-arm64 ]; then \
+		cd bin && tar -czf ../dist/go-net-monitoring-linux-arm64.tar.gz server-linux-arm64; \
+	fi
+	@echo "Linux ARM64构建完成"
+
+# macOS 构建
+build-darwin: build-darwin-amd64 build-darwin-arm64 ## 构建macOS版本 (Intel + Apple Silicon)
+
+build-darwin-amd64: ## 构建macOS Intel版本
+	@echo "构建macOS Intel版本..."
+	@mkdir -p bin dist
+	@echo "注意: macOS交叉编译需要在macOS系统上进行，或配置交叉编译工具链"
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o bin/agent-darwin-amd64 ./cmd/agent; \
+		CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/server-darwin-amd64 ./cmd/server; \
+		cd bin && tar -czf ../dist/go-net-monitoring-darwin-amd64.tar.gz agent-darwin-amd64 server-darwin-amd64; \
+	else \
+		echo "警告: 非macOS系统，跳过Agent构建 (需要CGO支持)"; \
+		CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o bin/server-darwin-amd64 ./cmd/server; \
+		cd bin && tar -czf ../dist/go-net-monitoring-darwin-amd64.tar.gz server-darwin-amd64; \
+	fi
+	@echo "macOS Intel构建完成"
+
+build-darwin-arm64: ## 构建macOS Apple Silicon版本
+	@echo "构建macOS Apple Silicon版本..."
+	@mkdir -p bin dist
+	@echo "注意: macOS交叉编译需要在macOS系统上进行，或配置交叉编译工具链"
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o bin/agent-darwin-arm64 ./cmd/agent; \
+		CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/server-darwin-arm64 ./cmd/server; \
+		cd bin && tar -czf ../dist/go-net-monitoring-darwin-arm64.tar.gz agent-darwin-arm64 server-darwin-arm64; \
+	else \
+		echo "警告: 非macOS系统，跳过Agent构建 (需要CGO支持)"; \
+		CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o bin/server-darwin-arm64 ./cmd/server; \
+		cd bin && tar -czf ../dist/go-net-monitoring-darwin-arm64.tar.gz server-darwin-arm64; \
+	fi
+	@echo "macOS Apple Silicon构建完成"
+
+# Windows 构建
+build-windows: build-windows-amd64 ## 构建Windows版本
+
+build-windows-amd64: ## 构建Windows AMD64版本
+	@echo "构建Windows AMD64版本..."
+	@mkdir -p bin dist
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o bin/agent-windows-amd64.exe ./cmd/agent
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/server-windows-amd64.exe ./cmd/server
+	@cd bin && zip -q ../dist/go-net-monitoring-windows-amd64.zip agent-windows-amd64.exe server-windows-amd64.exe
+	@echo "Windows AMD64构建完成: bin/agent-windows-amd64.exe, bin/server-windows-amd64.exe"
+
+# 当前平台检测和构建
+build-current: ## 构建当前平台版本
+	@echo "检测当前平台并构建..."
+	@GOOS=$$(go env GOOS); GOARCH=$$(go env GOARCH); \
+	echo "当前平台: $$GOOS/$$GOARCH"; \
+	mkdir -p bin; \
+	if [ "$$GOOS" = "darwin" ]; then \
+		if [ "$$GOARCH" = "arm64" ]; then \
+			$(MAKE) build-darwin-arm64; \
+			ln -sf agent-darwin-arm64 bin/agent; \
+			ln -sf server-darwin-arm64 bin/server; \
+		else \
+			$(MAKE) build-darwin-amd64; \
+			ln -sf agent-darwin-amd64 bin/agent; \
+			ln -sf server-darwin-amd64 bin/server; \
+		fi \
+	elif [ "$$GOOS" = "linux" ]; then \
+		if [ "$$GOARCH" = "arm64" ]; then \
+			$(MAKE) build-linux-arm64; \
+			ln -sf agent-linux-arm64 bin/agent; \
+			ln -sf server-linux-arm64 bin/server; \
+		else \
+			$(MAKE) build-linux-amd64; \
+			ln -sf agent-linux-amd64 bin/agent; \
+			ln -sf server-linux-amd64 bin/server; \
+		fi \
+	elif [ "$$GOOS" = "windows" ]; then \
+		$(MAKE) build-windows-amd64; \
+		ln -sf agent-windows-amd64.exe bin/agent.exe; \
+		ln -sf server-windows-amd64.exe bin/server.exe; \
+	fi
+	@echo "当前平台构建完成，可执行文件: bin/agent, bin/server"
 
 build-optimized: ## 优化构建Docker镜像
 	@./scripts/build-optimized.sh
@@ -77,13 +211,13 @@ ci-all: ci-lint ci-test ci-build ci-docker ci-integration ## CI: 运行完整CI�
 # 清理相关
 clean: ## 清理构建文件
 	@echo "清理构建文件..."
-	@rm -rf bin/
+	@rm -rf bin/ dist/
 	@docker system prune -f >/dev/null 2>&1 || true
 	@echo "清理完成"
 
 clean-all: ## 深度清理
 	@echo "深度清理..."
-	@rm -rf bin/ data/ logs/ coverage.out coverage.html
+	@rm -rf bin/ dist/ data/ logs/ coverage.out coverage.html
 	@docker system prune -af >/dev/null 2>&1 || true
 	@docker volume prune -f >/dev/null 2>&1 || true
 	@echo "深度清理完成"
@@ -165,16 +299,97 @@ docker-clean: ## 清理Docker资源
 dev-setup: ## 设置开发环境
 	@echo "设置开发环境..."
 	@go mod download
-	@mkdir -p bin data logs
+	@mkdir -p bin data logs dist
+	@echo "检查平台特定依赖..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "检测到macOS系统"; \
+		if ! command -v brew >/dev/null 2>&1; then \
+			echo "警告: 未检测到Homebrew，请安装: /bin/bash -c \"\$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""; \
+		fi; \
+		if ! brew list libpcap >/dev/null 2>&1; then \
+			echo "安装libpcap依赖..."; \
+			brew install libpcap || echo "请手动安装: brew install libpcap"; \
+		fi; \
+	elif [ "$$(uname)" = "Linux" ]; then \
+		echo "检测到Linux系统"; \
+		if command -v apt-get >/dev/null 2>&1; then \
+			echo "Ubuntu/Debian系统，请确保已安装: sudo apt-get install libpcap-dev"; \
+		elif command -v yum >/dev/null 2>&1; then \
+			echo "CentOS/RHEL系统，请确保已安装: sudo yum install libpcap-devel"; \
+		fi; \
+	fi
 	@echo "开发环境设置完成"
 
 dev-run-server: ## 运行Server (开发模式)
 	@echo "运行Server (开发模式)..."
-	@go run ./cmd/server --config configs/server.yaml --debug
+	@if [ ! -f bin/server ]; then \
+		echo "二进制文件不存在，正在构建..."; \
+		$(MAKE) build-current; \
+	fi
+	@./bin/server --config configs/server.yaml --debug
 
 dev-run-agent: ## 运行Agent (开发模式，需要root权限)
 	@echo "运行Agent (开发模式)..."
-	@sudo go run ./cmd/agent --config configs/agent.yaml --debug
+	@if [ ! -f bin/agent ]; then \
+		echo "二进制文件不存在，正在构建..."; \
+		$(MAKE) build-current; \
+	fi
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "macOS系统，使用sudo运行Agent..."; \
+		sudo ./bin/agent --config configs/agent.yaml --debug; \
+	else \
+		echo "Linux系统，使用sudo运行Agent..."; \
+		sudo ./bin/agent --config configs/agent.yaml --debug; \
+	fi
+
+# macOS特定命令
+macos-setup: ## macOS环境设置
+	@echo "设置macOS开发环境..."
+	@if ! command -v brew >/dev/null 2>&1; then \
+		echo "安装Homebrew..."; \
+		/bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; \
+	fi
+	@echo "安装依赖..."
+	@brew install libpcap go
+	@$(MAKE) dev-setup
+	@echo "macOS环境设置完成"
+
+macos-build: ## macOS构建 (自动检测架构)
+	@echo "构建macOS版本..."
+	@ARCH=$$(uname -m); \
+	if [ "$$ARCH" = "arm64" ]; then \
+		echo "检测到Apple Silicon (M1/M2)"; \
+		$(MAKE) build-darwin-arm64; \
+		ln -sf agent-darwin-arm64 bin/agent; \
+		ln -sf server-darwin-arm64 bin/server; \
+	else \
+		echo "检测到Intel处理器"; \
+		$(MAKE) build-darwin-amd64; \
+		ln -sf agent-darwin-amd64 bin/agent; \
+		ln -sf server-darwin-amd64 bin/server; \
+	fi
+	@echo "macOS构建完成"
+
+macos-run-agent: ## macOS运行Agent
+	@echo "在macOS上运行Agent..."
+	@if [ ! -f bin/agent ]; then \
+		echo "Agent不存在，正在构建..."; \
+		$(MAKE) macos-build; \
+	fi
+	@echo "注意: Agent需要root权限进行网络监控"
+	@echo "如果遇到权限问题，请运行: sudo $(MAKE) macos-run-agent-sudo"
+	@sudo ./bin/agent --config configs/agent.yaml --debug
+
+macos-run-agent-sudo: ## macOS以sudo权限运行Agent
+	@./bin/agent --config configs/agent.yaml --debug
+
+macos-run-server: ## macOS运行Server
+	@echo "在macOS上运行Server..."
+	@if [ ! -f bin/server ]; then \
+		echo "Server不存在，正在构建..."; \
+		$(MAKE) macos-build; \
+	fi
+	@./bin/server --config configs/server.yaml --debug
 
 # 部署相关
 deploy-build: build-optimized ## 构建部署镜像
