@@ -13,21 +13,54 @@ import (
 
 // InterfaceManager 网络接口管理器
 type InterfaceManager struct {
-	interfaces map[string]*InterfaceInfo
-	mutex      sync.RWMutex
-	logger     *logrus.Logger
-	hostname   string
+	interfaces   map[string]*InterfaceInfo
+	mutex        sync.RWMutex
+	logger       *logrus.Logger
+	hostname     string
+	hostDetector *HostDetector
+	hostInfo     *HostInfo
 }
 
 // NewInterfaceManager 创建网络接口管理器
 func NewInterfaceManager(logger *logrus.Logger) *InterfaceManager {
 	hostname, _ := os.Hostname()
 
-	return &InterfaceManager{
-		interfaces: make(map[string]*InterfaceInfo),
-		logger:     logger,
-		hostname:   hostname,
+	im := &InterfaceManager{
+		interfaces:   make(map[string]*InterfaceInfo),
+		logger:       logger,
+		hostname:     hostname,
+		hostDetector: NewHostDetector(logger),
 	}
+
+	// 初始化时检测主机信息
+	if hostInfo, err := im.hostDetector.DetectHostInfo(); err == nil {
+		im.hostInfo = hostInfo
+	} else {
+		logger.WithError(err).Warn("Failed to detect host info during initialization")
+	}
+
+	return im
+}
+
+// RefreshHostInfo 刷新主机信息
+func (im *InterfaceManager) RefreshHostInfo() error {
+	hostInfo, err := im.hostDetector.DetectHostInfo()
+	if err != nil {
+		return fmt.Errorf("failed to refresh host info: %w", err)
+	}
+
+	im.mutex.Lock()
+	im.hostInfo = hostInfo
+	im.mutex.Unlock()
+
+	return nil
+}
+
+// GetHostInfo 获取主机信息
+func (im *InterfaceManager) GetHostInfo() *HostInfo {
+	im.mutex.RLock()
+	defer im.mutex.RUnlock()
+	return im.hostInfo
 }
 
 // RefreshInterfaces 刷新网络接口信息
@@ -209,13 +242,19 @@ func (im *InterfaceManager) isVirtualInterface(name string) bool {
 }
 
 // UpdateMetrics 更新网络接口指标
-func (im *InterfaceManager) UpdateMetrics(metricsUpdater func(interfaceName, ipAddress, macAddress, hostname string)) {
+func (im *InterfaceManager) UpdateMetrics(metricsUpdater func(interfaceName, ipAddress, macAddress, hostname, hostIPAddress string)) {
 	im.mutex.RLock()
 	defer im.mutex.RUnlock()
 
+	// 获取主机IP地址
+	hostIPAddress := ""
+	if im.hostInfo != nil && im.hostInfo.IsContainer {
+		hostIPAddress = im.hostInfo.HostIP
+	}
+
 	for _, info := range im.interfaces {
 		for _, ip := range info.IPAddresses {
-			metricsUpdater(info.Name, ip, info.HardwareAddr, im.hostname)
+			metricsUpdater(info.Name, ip, info.HardwareAddr, im.hostname, hostIPAddress)
 		}
 	}
 }

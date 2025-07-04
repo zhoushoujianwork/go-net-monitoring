@@ -21,6 +21,7 @@
 - 🏗️ **分布式架构** - Agent/Server架构，支持多节点部署
 - 📱 **专业可视化** - 提供多种专业级Grafana Dashboard
 - 🐳 **容器化部署** - 统一的Docker部署方式，解决依赖问题
+- 🔍 **主机IP检测** - 自动识别容器环境并获取主机IP，区分虚拟机和物理机
 
 ## 📈 Grafana Dashboard
 
@@ -97,9 +98,10 @@ make docker-up-monitoring
 - `network_ips_accessed_total` - IP访问统计
 
 ### 网卡信息指标 (新增)
-- `network_interface_info` - 网卡信息，包含IP地址和MAC地址
-  - 标签: `interface`, `ip_address`, `mac_address`, `host`
-  - 示例: `network_interface_info{interface="eth0",ip_address="192.168.1.100",mac_address="02:42:ac:11:00:02",host="agent"} 1`
+- `network_interface_info` - 网卡信息，包含IP地址、MAC地址和主机IP地址
+  - 标签: `interface`, `ip_address`, `mac_address`, `host`, `host_ip_address`
+  - 示例: `network_interface_info{interface="eth0",ip_address="172.26.0.5",mac_address="02:42:ac:1a:00:05",host="container_id",host_ip_address="192.168.1.100"} 1`
+  - 说明: `host_ip_address` 标签仅在容器环境中有值，用于区分虚拟机和物理机
 
 ## 🚀 快速开始
 

@@ -516,8 +516,8 @@ func (s *Server) updateInterfaceMetrics(metrics *common.NetworkMetrics) {
 		}
 
 		// 更新所有网卡的信息指标
-		interfaceManager.UpdateMetrics(func(interfaceName, ipAddress, macAddress, hostname string) {
-			s.metrics.UpdateInterfaceInfo(interfaceName, ipAddress, macAddress, metrics.Hostname)
+		interfaceManager.UpdateMetrics(func(interfaceName, ipAddress, macAddress, hostname, hostIPAddress string) {
+			s.metrics.UpdateInterfaceInfo(interfaceName, ipAddress, macAddress, metrics.Hostname, hostIPAddress)
 		})
 	}
 }

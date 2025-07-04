@@ -227,9 +227,9 @@ func NewMetrics() *Metrics {
 		NetworkInterfaceInfo: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "network_interface_info",
-				Help: "Network interface information with IP address and MAC address",
+				Help: "Network interface information with IP address, MAC address and host IP address",
 			},
-			[]string{"interface", "ip_address", "mac_address", "host"},
+			[]string{"interface", "ip_address", "mac_address", "host", "host_ip_address"},
 		),
 	}
 }
@@ -276,9 +276,9 @@ func (m *Metrics) UpdateNetworkMetrics(metrics common.NetworkMetrics) {
 }
 
 // UpdateInterfaceInfo 更新网卡信息指标 (新增方法)
-func (m *Metrics) UpdateInterfaceInfo(interfaceName, ipAddress, macAddress, hostname string) {
+func (m *Metrics) UpdateInterfaceInfo(interfaceName, ipAddress, macAddress, hostname, hostIPAddress string) {
 	// 设置网卡信息指标，值为1表示该网卡存在
-	m.NetworkInterfaceInfo.WithLabelValues(interfaceName, ipAddress, macAddress, hostname).Set(1)
+	m.NetworkInterfaceInfo.WithLabelValues(interfaceName, ipAddress, macAddress, hostname, hostIPAddress).Set(1)
 }
 
 // ClearInterfaceInfo 清除网卡信息指标 (新增方法)
