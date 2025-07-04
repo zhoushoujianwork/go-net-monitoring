@@ -240,7 +240,13 @@ start_application() {
     
     # 启动应用
     log_success "正在启动应用..."
-    exec $COMMAND
+    
+    # 直接执行命令，避免颜色代码问题
+    if [ "$DEBUG_MODE" = "true" ]; then
+        exec /usr/local/bin/$COMPONENT --debug --config "$CONFIG_FILE"
+    else
+        exec /usr/local/bin/$COMPONENT --config "$CONFIG_FILE"
+    fi
 }
 
 # 信号处理
