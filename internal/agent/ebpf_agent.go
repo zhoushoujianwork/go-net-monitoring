@@ -36,7 +36,7 @@ type EBPFAgent struct {
 func NewEBPFAgent(cfg *config.AgentConfig) (*EBPFAgent, error) {
 	// 初始化日志
 	logger := logrus.New()
-	if err := setupLogger(logger, &cfg.Log); err != nil {
+	if err := setupEBPFLogger(logger, &cfg.Log); err != nil {
 		return nil, fmt.Errorf("初始化日志失败: %w", err)
 	}
 
@@ -77,6 +77,11 @@ func NewEBPFAgent(cfg *config.AgentConfig) (*EBPFAgent, error) {
 func (a *EBPFAgent) Start() error {
 	a.logger.Info("启动eBPF网络监控代理")
 
+	// 启动Reporter
+	if err := a.reporter.Start(); err != nil {
+		return fmt.Errorf("启动Reporter失败: %w", err)
+	}
+
 	// 检查eBPF程序文件
 	programPath := a.getEBPFProgramPath()
 	
@@ -111,7 +116,7 @@ func (a *EBPFAgent) startEBPFMode() error {
 	a.logger.Info("启动eBPF监控模式")
 
 	// 启动统计收集
-	interval := time.Duration(a.config.Monitor.ReportInterval)
+	interval := a.config.Monitor.ReportInterval
 	a.xdpLoader.StartStatsCollection(interval, a.handleEBPFStats)
 
 	// 启动数据上报
@@ -182,8 +187,10 @@ func (a *EBPFAgent) updateMetrics(stats *loader.PacketStats) {
 	a.metrics.TotalPacketsSent += stats.TotalPackets / 2
 	a.metrics.TotalPacketsRecv += stats.TotalPackets / 2
 
-	// 更新时间戳
+	// 更新时间戳和主机信息
 	a.metrics.Timestamp = time.Now()
+	a.metrics.HostID = a.getHostID()
+	a.metrics.Hostname = a.getHostname()
 }
 
 // simulationLoop 模拟数据循环
@@ -222,22 +229,29 @@ func (a *EBPFAgent) simulationLoop() {
 func (a *EBPFAgent) reportLoop() {
 	defer a.wg.Done()
 
-	interval := time.Duration(a.config.Monitor.ReportInterval)
+	interval := a.config.Monitor.ReportInterval
+	a.logger.WithField("interval", interval).Debug("启动数据上报循环")
+	
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
+			a.logger.Debug("触发数据上报")
+			
 			a.mutex.RLock()
 			metrics := a.metrics
 			a.mutex.RUnlock()
 
 			if err := a.reporter.Report(metrics); err != nil {
 				a.logger.WithError(err).Error("数据上报失败")
+			} else {
+				a.logger.Debug("数据上报成功")
 			}
 
 		case <-a.ctx.Done():
+			a.logger.Debug("上报循环退出")
 			return
 		}
 	}
@@ -252,6 +266,13 @@ func (a *EBPFAgent) Stop() error {
 
 	// 等待所有goroutine结束
 	a.wg.Wait()
+
+	// 停止Reporter
+	if a.reporter != nil {
+		if err := a.reporter.Stop(); err != nil {
+			a.logger.WithError(err).Error("停止Reporter失败")
+		}
+	}
 
 	// 清理XDP加载器
 	if a.xdpLoader != nil {
@@ -281,4 +302,48 @@ func (a *EBPFAgent) getEBPFProgramPath() string {
 	
 	// 回退到通用版本
 	return "bin/bpf/xdp_monitor.o"
+}
+
+// getHostID 获取主机ID
+func (a *EBPFAgent) getHostID() string {
+	hostname, _ := os.Hostname()
+	return hostname
+}
+
+// getHostname 获取主机名
+func (a *EBPFAgent) getHostname() string {
+	hostname, _ := os.Hostname()
+	return hostname
+}
+
+// setupEBPFLogger 设置eBPF Agent日志
+func setupEBPFLogger(logger *logrus.Logger, cfg *config.LogConfig) error {
+	// 设置日志级别
+	level, err := logrus.ParseLevel(cfg.Level)
+	if err != nil {
+		return fmt.Errorf("无效的日志级别: %s", cfg.Level)
+	}
+	logger.SetLevel(level)
+
+	// 设置日志格式
+	if cfg.Format == "json" {
+		logger.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		logger.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp: true,
+		})
+	}
+
+	// 设置输出
+	if cfg.Output == "stdout" {
+		logger.SetOutput(os.Stdout)
+	} else if cfg.Output != "" {
+		file, err := os.OpenFile(cfg.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			return fmt.Errorf("无法打开日志文件: %w", err)
+		}
+		logger.SetOutput(file)
+	}
+
+	return nil
 }
