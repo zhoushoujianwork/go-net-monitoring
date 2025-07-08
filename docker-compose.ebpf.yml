@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # eBPF Agent 服务
+  ebpf-agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ebpf-agent
+    container_name: netmon-ebpf-agent
+    restart: unless-stopped
+    privileged: true  # eBPF需要特权模式
+    network_mode: host  # 需要访问主机网络接口
+    pid: host  # 需要访问主机进程信息
+    volumes:
+      - /sys/fs/bpf:/sys/fs/bpf:rw  # BPF文件系统
+      - /sys/kernel/debug:/sys/kernel/debug:ro  # 调试信息
+      - ./configs:/app/configs:ro  # 配置文件
+      - ./logs:/app/logs:rw  # 日志目录
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - INTERFACE=${INTERFACE:-eth0}
+      - SERVER_URL=${SERVER_URL:-http://netmon-server:8080/api/v1/metrics}
+    depends_on:
+      - server
+    labels:
+      - "com.netmon.service=ebpf-agent"
+      - "com.netmon.version=2.0.0-ebpf"
+
+  # Server 服务 (现有)
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        COMPONENT: server
+    container_name: netmon-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./logs:/app/logs:rw
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+    labels:
+      - "com.netmon.service=server"
+
+  # 传统Agent (可选，用于对比)
+  legacy-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        COMPONENT: agent
+    container_name: netmon-legacy-agent
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./logs:/app/logs:rw
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - SERVER_URL=${SERVER_URL:-http://netmon-server:8080/api/v1/metrics}
+    depends_on:
+      - server
+    profiles:
+      - legacy  # 只在指定profile时启动
+    labels:
+      - "com.netmon.service=legacy-agent"
+
+  # Prometheus (监控)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: netmon-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    profiles:
+      - monitoring
+    labels:
+      - "com.netmon.service=prometheus"
+
+  # Grafana (可视化)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: netmon-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    profiles:
+      - monitoring
+    labels:
+      - "com.netmon.service=grafana"
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: netmon-network

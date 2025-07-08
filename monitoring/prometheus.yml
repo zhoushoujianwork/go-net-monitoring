@@ -1,0 +1,41 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus自身监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # eBPF网络监控Server
+  - job_name: 'netmon-server'
+    static_configs:
+      - targets: ['netmon-server:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    
+  # eBPF特定指标
+  - job_name: 'ebpf-metrics'
+    static_configs:
+      - targets: ['netmon-server:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s  # eBPF指标更频繁采集
+    scrape_timeout: 3s
+    metric_relabel_configs:
+      # 只采集eBPF相关指标
+      - source_labels: [__name__]
+        regex: 'ebpf_.*|network_.*'
+        action: keep
+
+  # 系统指标 (如果有node_exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+    scrape_interval: 30s
+    # 可选：如果没有node_exporter则注释掉

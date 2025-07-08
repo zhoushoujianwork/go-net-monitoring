@@ -1,0 +1,96 @@
+# eBPF Agent 生产环境 Dockerfile
+FROM ubuntu:22.04 as builder
+
+# 设置非交互模式
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 使用国内镜像源加速
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+
+# 安装编译依赖
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    llvm \
+    libbpf-dev \
+    linux-headers-generic \
+    pkg-config \
+    curl \
+    git \
+    make \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装Go
+RUN wget -O go.tar.gz https://mirrors.aliyun.com/golang/go1.23.0.linux-amd64.tar.gz && \
+    tar -xzf go.tar.gz -C /usr/local && \
+    rm go.tar.gz
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+ENV CGO_ENABLED=0
+
+# 设置工作目录
+WORKDIR /build
+
+# 先复制go.mod和go.sum，利用Docker缓存
+COPY go.mod go.sum ./
+
+# 下载依赖（排除有问题的包）
+RUN go mod download
+
+# 复制源码
+COPY . .
+
+# 编译eBPF程序
+RUN cd bpf && make clean && make all
+
+# 只编译eBPF相关的代码，避免gopacket依赖
+RUN go build -ldflags="-w -s" -tags="ebpf" -o bin/agent-ebpf ./cmd/agent-ebpf/
+
+# 生产镜像
+FROM ubuntu:22.04
+
+# 使用国内镜像源
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libbpf0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 创建用户
+RUN useradd -r -s /bin/false netmon
+
+# 创建目录
+RUN mkdir -p /app/bin /app/configs /app/bin/bpf /app/logs && \
+    chown -R netmon:netmon /app
+
+# 复制编译结果
+COPY --from=builder /build/bin/agent-ebpf /app/bin/
+COPY --from=builder /build/bin/bpf/ /app/bin/bpf/
+COPY --from=builder /build/configs/ /app/configs/
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置权限
+RUN chmod +x /app/bin/agent-ebpf
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pgrep -f agent-ebpf || exit 1
+
+# 环境变量
+ENV PATH="/app/bin:${PATH}"
+
+# 使用非root用户运行（在特权模式下会被覆盖）
+USER netmon
+
+# 启动命令
+ENTRYPOINT ["/app/bin/agent-ebpf"]
+CMD ["--config", "/app/configs/agent.yaml"]
