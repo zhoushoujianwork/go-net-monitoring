@@ -1,12 +1,11 @@
-# 多阶段构建 Dockerfile
-FROM golang:1.21-alpine AS builder
+# 多阶段构建 Dockerfile (无libpcap依赖版本)
+FROM golang:1.23-alpine AS builder
 
-# 安装构建依赖 (合并到一个RUN层)
+# 安装构建依赖 (移除libpcap-dev)
 RUN apk add --no-cache \
     git \
     gcc \
-    musl-dev \
-    libpcap-dev
+    musl-dev
 
 WORKDIR /app
 
@@ -14,37 +13,29 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# 复制源代码 (放在最后，避免代码变更影响依赖缓存)
+# 复制源代码
 COPY . .
 
 # 构建参数
 ARG VERSION=dev
 ARG BUILD_TIME
 ARG GIT_COMMIT
+ARG COMPONENT=server
 
-# 并行构建两个二进制文件 (优化构建时间)
-RUN CGO_ENABLED=1 GOOS=linux go build \
-    -ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT} -s -w" \
-    -o agent ./cmd/agent & \
+# 构建指定组件
+RUN echo "构建组件: ${COMPONENT}" && \
     CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT} -s -w" \
-    -o server ./cmd/server & \
-    wait
+        -ldflags="-w -s" \
+        -o ${COMPONENT} ./cmd/${COMPONENT}/
 
-# 运行时镜像 - 使用更新的Alpine版本
+# 运行时镜像
 FROM alpine:3.19
 
-# 优化：合并所有安装步骤到一个层，减少镜像大小
+# 安装运行时依赖 (移除libpcap)
 RUN apk add --no-cache \
     ca-certificates \
-    libpcap \
     tzdata \
-    tcpdump \
-    iproute2 \
-    net-tools \
-    procps \
     curl \
-    wget \
     && addgroup -g 1000 netmon \
     && adduser -D -s /bin/sh -u 1000 -G netmon netmon \
     && mkdir -p /app/data \
@@ -53,28 +44,27 @@ RUN apk add --no-cache \
 WORKDIR /app
 
 # 复制二进制文件和配置
-COPY --from=builder /app/agent /app/server /usr/local/bin/
-COPY --from=builder /app/configs/ /app/configs/
-COPY docker/entrypoint.sh /entrypoint.sh
+ARG COMPONENT=server
+COPY --from=builder /app/${COMPONENT} /app/
+COPY --from=builder /app/configs /app/configs
+COPY --from=builder /app/docker/entrypoint.sh /app/
 
-# 设置权限 (合并到一个RUN层)
-RUN chmod +x /entrypoint.sh \
-    && chown -R netmon:netmon /app
+# 设置权限
+RUN chown -R netmon:netmon /app && \
+    chmod +x /app/entrypoint.sh
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pgrep -f "${COMPONENT}" || exit 1
 
 # 暴露端口
 EXPOSE 8080
 
-# 优化健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD if [ "$COMPONENT" = "server" ]; then \
-            wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1; \
-        else \
-            pgrep agent > /dev/null || exit 1; \
-        fi
+# 环境变量
+ENV COMPONENT=${COMPONENT}
+ENV LOG_LEVEL=info
 
-# 设置默认环境变量
-ENV COMPONENT=server \
-    LOG_LEVEL=info
+# 使用非root用户
+USER netmon
 
-# 使用启动脚本
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

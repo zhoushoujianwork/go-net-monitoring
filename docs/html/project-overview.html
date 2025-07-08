@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>项目概览：基于 eBPF 的云原生网络监控系统</title>
+    <title>项目概览</title>
     <style>
+        /* 基础样式 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
@@ -12,84 +13,102 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #f8f9fa;
         }
+
         .container {
-            background: #fff;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        h1, h2, h3 {
-            color: #2c3e50;
-            margin-top: 30px;
-        }
-        .document-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-        .document-info p {
-            margin: 5px 0;
-        }
-        .architecture-diagram {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-            font-family: monospace;
-            white-space: pre;
-        }
-        .feature-list {
-            list-style: none;
-            padding: 0;
-        }
-        .feature-item {
-            margin: 15px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
-        .highlight-box {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid #007bff;
-        }
-        code {
-            background: #f8f9fa;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
+
+        /* 图表容器样式 */
         .diagram {
             margin: 30px 0;
             padding: 20px;
-            background: white;
+            background-color: #fff;
+            border: 1px solid #e9ecef;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
+
         .diagram-title {
-            font-size: 1.1em;
-            color: #2c3e50;
+            font-size: 1.2em;
+            font-weight: bold;
             margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
+            color: #2c3e50;
         }
+
         .diagram-description {
-            font-size: 0.9em;
-            color: #666;
             margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        /* Mermaid 图表样式 */
+        .mermaid {
+            background-color: #fafafa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+            min-height: 200px;
+        }
+
+        /* 标题样式 */
+        h1, h2, h3 {
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.8em;
+        }
+
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.5em; }
+        h3 { font-size: 1.3em; }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .diagram {
+                padding: 15px;
+            }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <script>
-        mermaid.initialize({ startOnLoad: true });
+        // Mermaid 配置
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                fontSize: '14px'
+            },
+            flowchart: {
+                curve: 'basis',
+                padding: 20,
+                useMaxWidth: true,
+                htmlLabels: true,
+                nodeSpacing: 50,
+                rankSpacing: 50
+            },
+            sequence: {
+                actorMargin: 50,
+                boxMargin: 10,
+                mirrorActors: false,
+                bottomMarginAdj: 1
+            }
+        });
+
+        // 页面加载完成后重新渲染图表
+        window.addEventListener('load', function() {
+            mermaid.init(undefined, ".mermaid");
+        });
     </script>
 </head>
 <body>
@@ -119,23 +138,27 @@
         <div class="diagram">
             <div class="diagram-title">整体架构图</div>
             <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph TD
+    classDef cluster fill:#f5f5f5,stroke:#ddd,stroke-width:2px;
+    classDef node fill:#fff,stroke:#666,stroke-width:2px;
+    
     subgraph K8s["Kubernetes 集群"]
         N1[Node 1]
         N2[Node 2]
         N3[Node 3]
     end
     
-    subgraph Node1["Node 1 详情"]
-        A1[Agent eBPF] --> |监控| C1[Container 1]
-        A1 --> |监控| C2[Container 2]
-        A1 --> |监控| C3[Container 3]
+    subgraph Node1["节点详情"]
+        A1[eBPF Agent]:::node --> |监控| C1[容器 1]:::node
+        A1 --> |监控| C2[容器 2]:::node
+        A1 --> |监控| C3[容器 3]:::node
     end
     
     subgraph Central["中央服务"]
-        P[Prometheus]
-        G[Grafana]
-        A[告警系统]
+        P[Prometheus]:::node
+        G[Grafana]:::node
+        A[告警系统]:::node
     end
     
     N1 --> |指标| P
@@ -143,6 +166,8 @@ graph TD
     N3 --> |指标| P
     P --> G
     P --> A
+    
+    class K8s,Node1,Central cluster;
             </div>
             <div class="diagram-description">
                 图1：展示了系统在 Kubernetes 集群中的部署架构，包括节点级 Agent、中央服务和监控展示系统。
@@ -180,25 +205,29 @@ graph TD
         <div class="diagram">
             <div class="diagram-title">数据流处理流程</div>
             <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph LR
-    subgraph 数据流["数据流处理"]
-        direction TB
-        P1[网络数据包] --> XDP[XDP程序]
-        XDP --> TC[TC程序]
-        TC --> SK[Socket程序]
-        SK --> Maps[eBPF Maps]
+    classDef process fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef data fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef output fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px;
+    
+    subgraph Flow["数据流处理"]
+        P1[网络数据包]:::data --> XDP[XDP程序]:::process
+        XDP --> TC[TC程序]:::process
+        TC --> SK[Socket程序]:::process
+        SK --> Maps[eBPF Maps]:::data
     end
     
-    subgraph 分析["分析层"]
-        Maps --> Stats[统计聚合]
-        Stats --> Metrics[指标生成]
-        Metrics --> Export[Prometheus导出]
+    subgraph Analysis["分析处理"]
+        Maps --> Stats[统计聚合]:::process
+        Stats --> Metrics[指标生成]:::process
+        Metrics --> Export[Prometheus导出]:::output
     end
     
-    subgraph 展示["可视化"]
-        Export --> Dashboard[Grafana面板]
-        Dashboard --> Alert[告警]
-        Dashboard --> Report[报表]
+    subgraph Visual["可视化展示"]
+        Export --> Dashboard[Grafana面板]:::output
+        Dashboard --> Alert[告警]:::output
+        Dashboard --> Report[报表]:::output
     end
             </div>
             <div class="diagram-description">
@@ -210,23 +239,28 @@ graph LR
         <div class="diagram">
             <div class="diagram-title">容器监控工作流程</div>
             <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph TD
+    classDef event fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef process fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px;
+    classDef data fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    
     subgraph Container["容器识别"]
-        C1[容器启动] --> |事件通知| D1[容器检测]
-        D1 --> |获取元数据| M1[容器信息]
-        M1 --> |关联| N1[网络接口]
+        C1[容器启动]:::event --> |事件通知| D1[容器检测]:::process
+        D1 --> |获取元数据| M1[容器信息]:::data
+        M1 --> |关联| N1[网络接口]:::data
     end
     
     subgraph Network["网络监控"]
-        N1 --> |流量捕获| T1[流量分析]
-        T1 --> |DNS解析| D2[域名关联]
-        T1 --> |连接跟踪| C2[连接信息]
+        N1 --> |流量捕获| T1[流量分析]:::process
+        T1 --> |DNS解析| D2[域名关联]:::process
+        T1 --> |连接跟踪| C2[连接信息]:::data
     end
     
     subgraph Analysis["分析结果"]
-        D2 --> |聚合| S1[统计数据]
+        D2 --> |聚合| S1[统计数据]:::data
         C2 --> |聚合| S1
-        S1 --> |展示| V1[可视化]
+        S1 --> |展示| V1[可视化]:::process
     end
             </div>
             <div class="diagram-description">
@@ -238,24 +272,29 @@ graph TD
         <div class="diagram">
             <div class="diagram-title">Kubernetes 部署架构</div>
             <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph TD
+    classDef component fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef resource fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef monitor fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px;
+    
     subgraph K8s["Kubernetes 部署架构"]
-        DS[DaemonSet] -->|部署| Agent
-        CM[ConfigMap] -->|配置| Agent
-        SA[ServiceAccount] -->|权限| Agent
-        Agent -->|采集| Data[数据]
+        DS[DaemonSet]:::resource -->|部署| Agent[eBPF Agent]:::component
+        CM[ConfigMap]:::resource -->|配置| Agent
+        SA[ServiceAccount]:::resource -->|权限| Agent
+        Agent -->|采集| Data[监控数据]:::component
     end
     
-    subgraph Monitor["监控架构"]
-        Data -->|导出| Prom[Prometheus]
-        Prom -->|查询| Grafana
-        Prom -->|规则| Alert[告警]
+    subgraph Monitor["监控系统"]
+        Data -->|导出| Prom[Prometheus]:::monitor
+        Prom -->|查询| Grafana[Grafana]:::monitor
+        Prom -->|规则| Alert[告警系统]:::monitor
     end
     
-    subgraph Visual["可视化"]
-        Grafana -->|展示| D1[流量面板]
-        Grafana -->|展示| D2[容器视图]
-        Grafana -->|展示| D3[异常检测]
+    subgraph Visual["可视化面板"]
+        Grafana -->|展示| D1[网络流量]:::monitor
+        Grafana -->|展示| D2[容器监控]:::monitor
+        Grafana -->|展示| D3[异常检测]:::monitor
     end
             </div>
             <div class="diagram-description">
@@ -279,26 +318,29 @@ graph TD
             <p>- 主机网络映射</p>
         </div>
 
-        <h2>6. 应用场景</h2>
-        
         <h3>6.1 云服务器出网监控</h3>
         <div class="diagram">
             <div class="diagram-title">DNS 解析与流量关联</div>
             <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph TD
+    classDef request fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef process fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef data fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px;
+    
     subgraph DNS["DNS 解析跟踪"]
-        DNS1[DNS 请求] -->|捕获| Parse1[解析请求]
-        Parse1 -->|提取| Domain[域名信息]
-        DNS2[DNS 响应] -->|捕获| Parse2[解析响应]
-        Parse2 -->|提取| IP[IP 信息]
-        Domain -->|关联| Map[域名-IP映射]
+        DNS1[DNS 请求]:::request -->|捕获| Parse1[解析请求]:::process
+        Parse1 -->|提取| Domain[域名信息]:::data
+        DNS2[DNS 响应]:::request -->|捕获| Parse2[解析响应]:::process
+        Parse2 -->|提取| IP[IP 信息]:::data
+        Domain -->|关联| Map[域名-IP映射]:::data
         IP -->|关联| Map
     end
     
-    subgraph Flow["流量关联"]
-        Packet[网络数据包] -->|匹配| Map
-        Map -->|关联| Traffic[流量统计]
-        Traffic -->|聚合| Stats[域名级统计]
+    subgraph Flow["流量分析"]
+        Packet[网络数据包]:::request -->|匹配| Map
+        Map -->|关联| Traffic[流量统计]:::process
+        Traffic -->|聚合| Stats[域名级统计]:::data
     end
             </div>
             <div class="diagram-description">
@@ -324,19 +366,25 @@ graph TD
         <div class="diagram">
             <div class="diagram-title">安全监控流程</div>
             <div class="mermaid">
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '16px' }}}%%
 graph LR
+    classDef data fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef process fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef alert fill:#fbe9e7,stroke:#bf360c,stroke-width:2px;
+    classDef action fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    
     subgraph Security["安全监控流程"]
-        Flow[流量数据] -->|分析| Pattern[行为模式]
-        Pattern -->|检测| Anomaly[异常行为]
-        Anomaly -->|触发| Alert[告警通知]
-        Alert -->|响应| Action[安全措施]
+        Flow[流量数据]:::data -->|分析| Pattern[行为模式]:::process
+        Pattern -->|检测| Anomaly[异常行为]:::alert
+        Anomaly -->|触发| Alert[告警通知]:::alert
+        Alert -->|响应| Action[安全措施]:::action
     end
     
     subgraph Types["异常类型"]
-        Anomaly --> T1[未授权访问]
-        Anomaly --> T2[数据外泄]
-        Anomaly --> T3[异常连接]
-        Anomaly --> T4[攻击行为]
+        Anomaly --> T1[未授权访问]:::alert
+        Anomaly --> T2[数据外泄]:::alert
+        Anomaly --> T3[异常连接]:::alert
+        Anomaly --> T4[攻击行为]:::alert
     end
             </div>
             <div class="diagram-description">
