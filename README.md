@@ -413,6 +413,48 @@ rate(network_connections_total[5m])
 
 ## 🔧 高级配置
 
+### eBPF 程序路径配置
+
+系统支持灵活的 eBPF 程序路径配置，解决不同环境下的兼容性问题：
+
+```yaml
+ebpf:
+  program_path: "/opt/go-net-monitoring/bpf/xdp_monitor.o"  # 主要程序路径
+  fallback_paths:                                          # 备用路径列表
+    - "bpf/xdp_monitor.o"                                 # 开发环境
+    - "bin/bpf/xdp_monitor.o"                             # 构建输出
+    - "bin/bpf/xdp_monitor_linux.o"                       # Linux特定版本
+    - "/usr/local/bin/bpf/xdp_monitor.o"                  # 系统安装路径
+  enable_fallback: true                                    # 启用模拟模式回退
+```
+
+**路径解析特性：**
+- 🎯 **智能路径解析** - 支持绝对路径和相对路径
+- 🔄 **多级回退机制** - 主要路径 → 备用路径 → 默认路径 → 模拟模式
+- 📁 **相对路径搜索** - 自动在工作目录、二进制目录、项目根目录搜索
+- 🛡️ **错误处理** - 详细的错误信息和友好的回退机制
+
+**使用场景：**
+```yaml
+# 生产环境 - 使用绝对路径
+ebpf:
+  program_path: "/opt/go-net-monitoring/bpf/xdp_monitor.o"
+  enable_fallback: false
+
+# 开发环境 - 使用相对路径
+ebpf:
+  program_path: "bin/bpf/xdp_monitor.o"
+  enable_fallback: true
+
+# 容器环境 - 多路径支持
+ebpf:
+  program_path: "/opt/go-net-monitoring/bpf/xdp_monitor.o"
+  fallback_paths: ["/app/bin/bpf/xdp_monitor.o"]
+  enable_fallback: true
+```
+
+详细配置说明请参考：[eBPF 路径配置指南](docs/ebpf-path-configuration.md)
+
 ### 过滤规则
 
 ```yaml

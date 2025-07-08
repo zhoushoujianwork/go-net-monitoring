@@ -13,6 +13,7 @@ type AgentConfig struct {
 	Monitor     MonitorConfig     `yaml:"monitor"`
 	Reporter    ReporterConfig    `yaml:"reporter"`
 	Persistence PersistenceConfig `yaml:"persistence"`
+	EBPF        EBPFConfig        `yaml:"ebpf"`
 	Log         LogConfig         `yaml:"log"`
 }
 
@@ -60,6 +61,13 @@ type PersistenceConfig struct {
 	StateFile    string        `yaml:"state_file"`    // 状态文件路径
 	SaveInterval time.Duration `yaml:"save_interval"` // 保存间隔
 	BackupCount  int           `yaml:"backup_count"`  // 备份文件数量
+}
+
+// EBPFConfig eBPF程序配置
+type EBPFConfig struct {
+	ProgramPath    string   `yaml:"program_path"`    // eBPF程序文件路径
+	FallbackPaths  []string `yaml:"fallback_paths"`  // 备用路径列表
+	EnableFallback bool     `yaml:"enable_fallback"` // 是否启用模拟模式回退
 }
 
 // LogConfig 日志配置
@@ -121,24 +129,33 @@ type RedisConfig struct {
 
 // LoadAgentConfig 加载Agent配置
 func LoadAgentConfig(configPath string) (*AgentConfig, error) {
-	viper.SetConfigFile(configPath)
-	viper.SetConfigType("yaml")
+	// 使用独立的 viper 实例避免全局状态冲突
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	v.SetConfigType("yaml")
 
 	// 设置默认值
-	setAgentDefaults()
+	setAgentDefaultsForViper(v)
 
-	if err := viper.ReadInConfig(); err != nil {
+	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("读取配置文件失败: %w", err)
 	}
 
 	var config AgentConfig
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := v.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
 	}
 
 	// 手动处理可能的配置问题
 	if config.Reporter.ServerURL == "" {
-		config.Reporter.ServerURL = viper.GetString("reporter.server_url")
+		config.Reporter.ServerURL = v.GetString("reporter.server_url")
+	}
+
+	// 手动处理 eBPF 配置（如果解析失败）
+	if config.EBPF.ProgramPath == "" && v.IsSet("ebpf.program_path") {
+		config.EBPF.ProgramPath = v.GetString("ebpf.program_path")
+		config.EBPF.EnableFallback = v.GetBool("ebpf.enable_fallback")
+		config.EBPF.FallbackPaths = v.GetStringSlice("ebpf.fallback_paths")
 	}
 
 	// 验证配置
@@ -228,28 +245,43 @@ func validateServerConfig(config *ServerAppConfig) error {
 	return nil
 }
 
-// setAgentDefaults 设置Agent默认配置
+// setAgentDefaultsForViper 为指定的 viper 实例设置Agent默认配置
+func setAgentDefaultsForViper(v *viper.Viper) {
+	v.SetDefault("server.host", "localhost")
+	v.SetDefault("server.port", 8080)
+
+	v.SetDefault("monitor.interface", "")
+	v.SetDefault("monitor.protocols", []string{"tcp", "udp"})
+	v.SetDefault("monitor.report_interval", 30*time.Second)
+	v.SetDefault("monitor.buffer_size", 1000)
+	v.SetDefault("monitor.filters.ignore_localhost", true)
+	v.SetDefault("monitor.filters.ignore_ports", []int{22, 53})
+
+	v.SetDefault("reporter.server_url", "http://localhost:8080/api/v1/metrics")
+	v.SetDefault("reporter.timeout", 10*time.Second)
+	v.SetDefault("reporter.retry_count", 3)
+	v.SetDefault("reporter.retry_delay", 5*time.Second)
+	v.SetDefault("reporter.batch_size", 100)
+	v.SetDefault("reporter.enable_tls", false)
+
+	// eBPF配置默认值
+	v.SetDefault("ebpf.program_path", "/opt/go-net-monitoring/bpf/xdp_monitor.o")
+	v.SetDefault("ebpf.fallback_paths", []string{
+		"bpf/xdp_monitor.o",
+		"bin/bpf/xdp_monitor.o",
+		"bin/bpf/xdp_monitor_linux.o",
+		"/usr/local/bin/bpf/xdp_monitor.o",
+	})
+	v.SetDefault("ebpf.enable_fallback", true)
+
+	v.SetDefault("log.level", "info")
+	v.SetDefault("log.format", "json")
+	v.SetDefault("log.output", "stdout")
+}
+
+// setAgentDefaults 设置Agent默认配置 (保持向后兼容)
 func setAgentDefaults() {
-	viper.SetDefault("server.host", "localhost")
-	viper.SetDefault("server.port", 8080)
-
-	viper.SetDefault("monitor.interface", "")
-	viper.SetDefault("monitor.protocols", []string{"tcp", "udp"})
-	viper.SetDefault("monitor.report_interval", 30*time.Second)
-	viper.SetDefault("monitor.buffer_size", 1000)
-	viper.SetDefault("monitor.filters.ignore_localhost", true)
-	viper.SetDefault("monitor.filters.ignore_ports", []int{22, 53})
-
-	viper.SetDefault("reporter.server_url", "http://localhost:8080/api/v1/metrics")
-	viper.SetDefault("reporter.timeout", 10*time.Second)
-	viper.SetDefault("reporter.retry_count", 3)
-	viper.SetDefault("reporter.retry_delay", 5*time.Second)
-	viper.SetDefault("reporter.batch_size", 100)
-	viper.SetDefault("reporter.enable_tls", false)
-
-	viper.SetDefault("log.level", "info")
-	viper.SetDefault("log.format", "json")
-	viper.SetDefault("log.output", "stdout")
+	setAgentDefaultsForViper(viper.GetViper())
 }
 
 // setServerDefaults 设置Server默认配置

@@ -5,78 +5,158 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>网络监控技术演进：从 libpcap 到 eBPF</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
             color: #333;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-        .container {
-            background: #fff;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
         }
-        h1, h2, h3 {
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
             color: #2c3e50;
-            margin-top: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
         }
-        .comparison-table {
+        
+        .section h3 {
+            color: #34495e;
+            margin: 25px 0 15px 0;
+            font-size: 1.3em;
+        }
+        
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .code-block .comment {
+            color: #68d391;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .warning {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .architecture-diagram {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        
+        table {
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
         }
-        .comparison-table th, .comparison-table td {
+        
+        th, td {
             border: 1px solid #ddd;
             padding: 12px;
             text-align: left;
         }
-        .comparison-table th {
-            background-color: #f5f5f5;
-        }
-        .architecture-diagram {
+        
+        th {
             background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-            font-family: monospace;
-            white-space: pre;
-        }
-        code {
-            background: #f8f9fa;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-        .document-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-        .document-info p {
-            margin: 5px 0;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>网络监控技术演进：从 libpcap 到 eBPF</h1>
-        
-        <div class="document-info">
-            <p>创建日期：2024-03-21</p>
-            <p>最后更新：2024-03-21</p>
-            <p>文档版本：1.0</p>
+        <div class="header">
+            <h1>网络监控技术演进：从 libpcap 到 eBPF</h1>
+            <p>详细介绍了从传统的 libpcap 到现代 eBPF 技术的演进过程</p>
         </div>
-        
-        <h2>1. 技术架构对比</h2>
-        
-        <h3>1.1 传统 libpcap 方案</h3>
-        <div class="architecture-diagram">
+
+        <div class="section">
+            <h2>1. 技术架构对比</h2>
+            
+            <h3>1.1 传统 libpcap 方案</h3>
+            <div class="architecture-diagram">
 [网络数据包] → [内核] → [拷贝到用户空间] → [libpcap] → [应用程序]
 
 特点：
@@ -84,10 +164,10 @@
 - 需要数据拷贝
 - 处理延迟高
 - 资源消耗大
-        </div>
+            </div>
 
-        <h3>1.2 现代 eBPF 方案</h3>
-        <div class="architecture-diagram">
+            <h3>1.2 现代 eBPF 方案</h3>
+            <div class="architecture-diagram">
 [网络数据包] → [内核 eBPF 程序直接处理] → [eBPF Maps] → [应用程序读取统计]
 
 特点：
@@ -95,139 +175,154 @@
 - 零拷贝
 - 极低延迟
 - 资源效率高
+            </div>
         </div>
 
-        <h2>2. 性能对比</h2>
-        <table class="comparison-table">
-            <tr>
-                <th>性能指标</th>
-                <th>libpcap</th>
-                <th>eBPF</th>
-            </tr>
-            <tr>
-                <td>数据拷贝</td>
-                <td>多次拷贝</td>
-                <td>零拷贝</td>
-            </tr>
-            <tr>
-                <td>处理延迟</td>
-                <td>毫秒级</td>
-                <td>微秒级</td>
-            </tr>
-            <tr>
-                <td>CPU 开销</td>
-                <td>高</td>
-                <td>低</td>
-            </tr>
-            <tr>
-                <td>内存使用</td>
-                <td>大</td>
-                <td>小</td>
-            </tr>
-            <tr>
-                <td>最大吞吐量</td>
-                <td>1-2Gbps</td>
-                <td>10Gbps+</td>
-            </tr>
-            <tr>
-                <td>系统调用次数</td>
-                <td>多</td>
-                <td>少</td>
-            </tr>
-        </table>
+        <div class="section">
+            <h2>2. 性能对比</h2>
+            <table>
+                <tr>
+                    <th>性能指标</th>
+                    <th>libpcap</th>
+                    <th>eBPF</th>
+                </tr>
+                <tr>
+                    <td>数据拷贝</td>
+                    <td>多次拷贝</td>
+                    <td>零拷贝</td>
+                </tr>
+                <tr>
+                    <td>处理延迟</td>
+                    <td>毫秒级</td>
+                    <td>微秒级</td>
+                </tr>
+                <tr>
+                    <td>CPU 开销</td>
+                    <td>高</td>
+                    <td>低</td>
+                </tr>
+                <tr>
+                    <td>内存使用</td>
+                    <td>大</td>
+                    <td>小</td>
+                </tr>
+                <tr>
+                    <td>最大吞吐量</td>
+                    <td>1-2Gbps</td>
+                    <td>10Gbps+</td>
+                </tr>
+                <tr>
+                    <td>系统调用次数</td>
+                    <td>多</td>
+                    <td>少</td>
+                </tr>
+            </table>
+        </div>
 
-        <h2>3. 功能特性对比</h2>
-        <table class="comparison-table">
-            <tr>
-                <th>功能特性</th>
-                <th>libpcap</th>
-                <th>eBPF</th>
-            </tr>
-            <tr>
-                <td>包过滤</td>
-                <td>BPF 过滤器</td>
-                <td>完整程序逻辑</td>
-            </tr>
-            <tr>
-                <td>数据处理位置</td>
-                <td>用户态</td>
-                <td>内核态</td>
-            </tr>
-            <tr>
-                <td>协议支持</td>
-                <td>完整</td>
-                <td>完整</td>
-            </tr>
-            <tr>
-                <td>进程关联</td>
-                <td>间接</td>
-                <td>直接</td>
-            </tr>
-            <tr>
-                <td>安全性</td>
-                <td>需要 root 权限</td>
-                <td>验证器保证安全</td>
-            </tr>
-            <tr>
-                <td>可观测性</td>
-                <td>有限</td>
-                <td>丰富</td>
-            </tr>
-        </table>
+        <div class="section">
+            <h2>3. 功能特性对比</h2>
+            <table>
+                <tr>
+                    <th>功能特性</th>
+                    <th>libpcap</th>
+                    <th>eBPF</th>
+                </tr>
+                <tr>
+                    <td>包过滤</td>
+                    <td>BPF 过滤器</td>
+                    <td>完整程序逻辑</td>
+                </tr>
+                <tr>
+                    <td>数据处理位置</td>
+                    <td>用户态</td>
+                    <td>内核态</td>
+                </tr>
+                <tr>
+                    <td>协议支持</td>
+                    <td>完整</td>
+                    <td>完整</td>
+                </tr>
+                <tr>
+                    <td>进程关联</td>
+                    <td>间接</td>
+                    <td>直接</td>
+                </tr>
+                <tr>
+                    <td>安全性</td>
+                    <td>需要 root 权限</td>
+                    <td>验证器保证安全</td>
+                </tr>
+                <tr>
+                    <td>可观测性</td>
+                    <td>有限</td>
+                    <td>丰富</td>
+                </tr>
+            </table>
+        </div>
 
-        <h2>4. 应用场景</h2>
-        <h3>4.1 适合使用 eBPF 的场景</h3>
-        <ul>
-            <li>高性能网络监控</li>
-            <li>大规模流量分析</li>
-            <li>实时网络可观测性</li>
-            <li>网络安全监控</li>
-            <li>容器和云原生环境</li>
-        </ul>
+        <div class="section">
+            <h2>4. 应用场景</h2>
+            <div class="info">
+                <h3>4.1 适合使用 eBPF 的场景</h3>
+                <ul>
+                    <li>高性能网络监控</li>
+                    <li>大规模流量分析</li>
+                    <li>实时网络可观测性</li>
+                    <li>网络安全监控</li>
+                    <li>容器和云原生环境</li>
+                </ul>
+            </div>
 
-        <h3>4.2 环境要求</h3>
-        <ul>
-            <li>Linux 内核版本 >= 4.9</li>
-            <li>开启 eBPF 支持</li>
-            <li>适当的系统权限</li>
-            <li>足够的系统资源</li>
-        </ul>
+            <div class="info">
+                <h3>4.2 环境要求</h3>
+                <ul>
+                    <li>Linux 内核版本 >= 4.9</li>
+                    <li>开启 eBPF 支持</li>
+                    <li>适当的系统权限</li>
+                    <li>足够的系统资源</li>
+                </ul>
+            </div>
+        </div>
 
-        <h2>5. 开发对比</h2>
-        <table class="comparison-table">
-            <tr>
-                <th>开发方面</th>
-                <th>libpcap</th>
-                <th>eBPF</th>
-            </tr>
-            <tr>
-                <td>学习曲线</td>
-                <td>较平缓</td>
-                <td>较陡峭</td>
-            </tr>
-            <tr>
-                <td>开发难度</td>
-                <td>中等</td>
-                <td>较高</td>
-            </tr>
-            <tr>
-                <td>调试难度</td>
-                <td>简单</td>
-                <td>复杂</td>
-            </tr>
-            <tr>
-                <td>社区支持</td>
-                <td>成熟</td>
-                <td>快速成长</td>
-            </tr>
-        </table>
+        <div class="section">
+            <h2>5. 开发对比</h2>
+            <table>
+                <tr>
+                    <th>开发方面</th>
+                    <th>libpcap</th>
+                    <th>eBPF</th>
+                </tr>
+                <tr>
+                    <td>学习曲线</td>
+                    <td>较平缓</td>
+                    <td>较陡峭</td>
+                </tr>
+                <tr>
+                    <td>开发难度</td>
+                    <td>中等</td>
+                    <td>较高</td>
+                </tr>
+                <tr>
+                    <td>调试难度</td>
+                    <td>简单</td>
+                    <td>复杂</td>
+                </tr>
+                <tr>
+                    <td>社区支持</td>
+                    <td>成熟</td>
+                    <td>快速成长</td>
+                </tr>
+            </table>
+        </div>
 
-        <h2>6. 总结</h2>
-        <p>
-            从 libpcap 到 eBPF 的转变代表了网络监控技术的一次重大升级。eBPF 通过在内核中直接处理网络数据，
-            显著提升了性能和效率。虽然开发难度较高，但带来的性能提升和功能增强使其成为现代网络监控的最佳选择，
-            特别是在高性能、大规模部署场景中。
-        </p>
+        <div class="section">
+            <h2>6. 总结</h2>
+            <p>
+                从 libpcap 到 eBPF 的转变代表了网络监控技术的一次重大升级。eBPF 通过在内核中直接处理网络数据，
+                显著提升了性能和效率。虽然开发难度较高，但带来的性能提升和功能增强使其成为现代网络监控的最佳选择，
+                特别是在高性能、大规模部署场景中。
+            </p>
+        </div>
     </div>
 </body>
 </html> 

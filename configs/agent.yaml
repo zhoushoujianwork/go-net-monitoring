@@ -34,6 +34,17 @@ persistence:
   save_interval: "30s"             # 保存间隔
   backup_count: 3                  # 备份文件数量
 
+# eBPF程序配置
+ebpf:
+  program_path: "/opt/go-net-monitoring/bpf/xdp_monitor.o"  # 生产环境路径
+  # program_path: "bpf/xdp_monitor.o"  # 开发环境相对路径
+  fallback_paths:                  # 备用路径列表，按优先级排序
+    - "bpf/xdp_monitor.o"
+    - "bin/bpf/xdp_monitor.o"
+    - "bin/bpf/xdp_monitor_linux.o"
+    - "/usr/local/bin/bpf/xdp_monitor.o"
+  enable_fallback: true            # 启用模拟模式回退
+
 reporter:
   server_url: "http://localhost:8080/api/v1/metrics"  # Server API地址
   timeout: "10s"

@@ -49,9 +49,16 @@ COPY --from=builder /app/${COMPONENT} /app/
 COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/docker/entrypoint.sh /app/
 
+# 复制 eBPF 程序文件到标准位置
+COPY --from=builder /app/bin/bpf /opt/go-net-monitoring/bpf/
+COPY --from=builder /app/bpf/programs /opt/go-net-monitoring/bpf/programs/
+
 # 设置权限
 RUN chown -R netmon:netmon /app && \
-    chmod +x /app/entrypoint.sh
+    chmod +x /app/entrypoint.sh && \
+    mkdir -p /opt/go-net-monitoring/bpf && \
+    chown -R netmon:netmon /opt/go-net-monitoring && \
+    chmod 644 /opt/go-net-monitoring/bpf/*.o 2>/dev/null || true
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

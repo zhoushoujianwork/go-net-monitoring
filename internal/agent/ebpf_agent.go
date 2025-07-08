@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -82,13 +83,21 @@ func (a *EBPFAgent) Start() error {
 		return fmt.Errorf("启动Reporter失败: %w", err)
 	}
 
-	// 检查eBPF程序文件
+	// 获取eBPF程序路径
 	programPath := a.getEBPFProgramPath()
+	a.logger.WithField("program_path", programPath).Info("准备加载eBPF程序")
 	
 	// 尝试加载eBPF程序
 	if err := a.loadEBPFProgram(programPath); err != nil {
-		a.logger.WithError(err).Warn("eBPF程序加载失败，启用模拟模式")
-		return a.startSimulationMode()
+		a.logger.WithError(err).Warn("eBPF程序加载失败")
+		
+		// 检查是否启用回退模式
+		if a.config.EBPF.EnableFallback {
+			a.logger.Info("启用模拟模式作为回退方案")
+			return a.startSimulationMode()
+		} else {
+			return fmt.Errorf("eBPF程序加载失败且未启用回退模式: %w", err)
+		}
 	}
 
 	// 启动eBPF监控
@@ -97,17 +106,28 @@ func (a *EBPFAgent) Start() error {
 
 // loadEBPFProgram 加载eBPF程序
 func (a *EBPFAgent) loadEBPFProgram(programPath string) error {
+	// 检查文件是否存在
+	if _, err := os.Stat(programPath); err != nil {
+		return fmt.Errorf("eBPF程序文件不存在: %s (%v)", programPath, err)
+	}
+
+	a.logger.WithField("program_path", programPath).Info("开始加载eBPF程序")
+
 	// 加载eBPF程序
 	if err := a.xdpLoader.Load(programPath); err != nil {
-		return fmt.Errorf("加载eBPF程序失败: %w", err)
+		return fmt.Errorf("加载eBPF程序失败 [%s]: %w", programPath, err)
 	}
 
 	// 附加到网络接口
 	if err := a.xdpLoader.Attach(); err != nil {
-		return fmt.Errorf("附加XDP程序失败: %w", err)
+		return fmt.Errorf("附加XDP程序到接口 [%s] 失败: %w", a.config.Monitor.Interface, err)
 	}
 
-	a.logger.WithField("program", programPath).Info("eBPF程序加载成功")
+	a.logger.WithFields(logrus.Fields{
+		"program_path": programPath,
+		"interface":    a.config.Monitor.Interface,
+	}).Info("eBPF程序加载并附加成功")
+	
 	return nil
 }
 
@@ -292,16 +312,95 @@ func (a *EBPFAgent) GetMetrics() common.NetworkMetrics {
 	return a.metrics
 }
 
-// getEBPFProgramPath 获取eBPF程序路径
+// getEBPFProgramPath 获取eBPF程序路径，支持智能路径解析
 func (a *EBPFAgent) getEBPFProgramPath() string {
-	// 优先使用Linux版本
-	linuxPath := "bin/bpf/xdp_monitor_linux.o"
-	if _, err := os.Stat(linuxPath); err == nil {
-		return linuxPath
+	// 1. 优先使用配置文件中指定的路径
+	programPath := a.config.EBPF.ProgramPath
+	if programPath != "" {
+		if resolvedPath, err := a.resolveEBPFPath(programPath); err == nil {
+			a.logger.WithField("path", resolvedPath).Info("使用配置文件指定的eBPF程序路径")
+			return resolvedPath
+		}
+		a.logger.WithField("path", programPath).Warn("配置文件指定的eBPF程序路径不存在")
 	}
-	
-	// 回退到通用版本
-	return "bin/bpf/xdp_monitor.o"
+
+	// 2. 尝试备用路径列表
+	for _, fallbackPath := range a.config.EBPF.FallbackPaths {
+		if resolvedPath, err := a.resolveEBPFPath(fallbackPath); err == nil {
+			a.logger.WithField("path", resolvedPath).Info("使用备用eBPF程序路径")
+			return resolvedPath
+		}
+	}
+
+	// 3. 使用默认路径（兼容旧版本）
+	defaultPaths := []string{
+		"bin/bpf/xdp_monitor_linux.o",
+		"bin/bpf/xdp_monitor.o",
+		"bpf/xdp_monitor.o",
+	}
+
+	for _, defaultPath := range defaultPaths {
+		if resolvedPath, err := a.resolveEBPFPath(defaultPath); err == nil {
+			a.logger.WithField("path", resolvedPath).Info("使用默认eBPF程序路径")
+			return resolvedPath
+		}
+	}
+
+	// 4. 如果所有路径都失败，返回第一个配置路径用于错误提示
+	if programPath != "" {
+		return programPath
+	}
+	return "bpf/xdp_monitor.o"
+}
+
+// resolveEBPFPath 解析eBPF程序路径，支持相对路径和绝对路径
+func (a *EBPFAgent) resolveEBPFPath(programPath string) (string, error) {
+	// 如果是绝对路径，直接检查
+	if filepath.IsAbs(programPath) {
+		if _, err := os.Stat(programPath); err != nil {
+			return "", fmt.Errorf("绝对路径文件不存在: %s", programPath)
+		}
+		return programPath, nil
+	}
+
+	// 相对路径处理：尝试多个位置
+	searchPaths := []string{
+		// 1. 相对于当前工作目录
+		programPath,
+		// 2. 相对于二进制文件目录
+		"",
+		// 3. 相对于项目根目录
+		"",
+	}
+
+	// 获取二进制文件目录
+	if execPath, err := os.Executable(); err == nil {
+		binDir := filepath.Dir(execPath)
+		searchPaths[1] = filepath.Join(binDir, programPath)
+		
+		// 尝试项目根目录（假设二进制在 bin/ 或 cmd/ 子目录中）
+		parentDir := filepath.Dir(binDir)
+		searchPaths[2] = filepath.Join(parentDir, programPath)
+	}
+
+	// 按顺序尝试每个路径
+	for i, searchPath := range searchPaths {
+		if searchPath == "" {
+			continue
+		}
+		
+		if _, err := os.Stat(searchPath); err == nil {
+			location := []string{"当前工作目录", "二进制文件目录", "项目根目录"}[i]
+			a.logger.WithFields(logrus.Fields{
+				"original_path": programPath,
+				"resolved_path": searchPath,
+				"location":      location,
+			}).Debug("eBPF程序路径解析成功")
+			return searchPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("在所有搜索路径中都未找到文件: %s", programPath)
 }
 
 // getHostID 获取主机ID

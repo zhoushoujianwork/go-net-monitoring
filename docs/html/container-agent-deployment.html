@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>容器运行 Agent 部署指南 - Go 网络监控系统</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .toc li {
+            margin: 8px 0;
+        }
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .emoji {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="emoji">🐳</span> 容器运行 Agent 部署指南</h1>
+        
+        <div class="info">
+            <strong>📋 文档概述：</strong> 本文档详细介绍如何使用 Docker 容器方式部署和运行网络监控 Agent，包括单独部署、集群部署和故障排查等内容。
+        </div>
+
+        <div class="toc">
+            <h3>📑 目录</h3>
+            <ul>
+                <li><a href="#overview">1. 概述</a></li>
+                <li><a href="#prerequisites">2. 环境要求</a></li>
+                <li><a href="#quick-start">3. 快速开始</a></li>
+                <li><a href="#standalone-deployment">4. 独立 Agent 部署</a></li>
+                <li><a href="#configuration">5. 配置管理</a></li>
+                <li><a href="#monitoring">6. 监控验证</a></li>
+                <li><a href="#troubleshooting">7. 故障排查</a></li>
+                <li><a href="#best-practices">8. 最佳实践</a></li>
+            </ul>
+        </div>
+
+        <h2 id="overview"><span class="emoji">🎯</span> 1. 概述</h2>
+        
+        <p>Go 网络监控系统的 Agent 组件负责实时收集网络流量数据，包括域名访问统计、协议分析和流量监控。容器化部署方式具有以下优势：</p>
+
+        <div class="feature-list">
+            <div class="feature-item">
+                <h4><span class="emoji">🚀</span> 快速部署</h4>
+                <p>一键启动，无需复杂的环境配置和依赖安装</p>
+            </div>
+            <div class="feature-item">
+                <h4><span class="emoji">🔧</span> 统一环境</h4>
+                <p>解决 CGO 依赖和跨平台兼容性问题</p>
+            </div>
+            <div class="feature-item">
+                <h4><span class="emoji">📊</span> 实时监控</h4>
+                <p>基于 eBPF 的高性能网络数据包捕获</p>
+            </div>
+            <div class="feature-item">
+                <h4><span class="emoji">🌐</span> 智能解析</h4>
+                <p>自动 DNS 解析和域名访问统计</p>
+            </div>
+        </div>
+
+        <h2 id="prerequisites"><span class="emoji">⚙️</span> 2. 环境要求</h2>
+
+        <h3>系统要求</h3>
+        <table>
+            <tr>
+                <th>组件</th>
+                <th>要求</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>Docker</td>
+                <td>≥ 20.10</td>
+                <td>支持容器运行时</td>
+            </tr>
+            <tr>
+                <td>操作系统</td>
+                <td>Linux/macOS/Windows</td>
+                <td>推荐 Linux 获得最佳性能</td>
+            </tr>
+            <tr>
+                <td>内存</td>
+                <td>≥ 512MB</td>
+                <td>Agent 运行所需最小内存</td>
+            </tr>
+            <tr>
+                <td>网络权限</td>
+                <td>特权模式</td>
+                <td>需要 --privileged 进行网络监控</td>
+            </tr>
+        </table>
+
+        <h3>权限要求</h3>
+        <div class="warning">
+            <strong>⚠️ 重要提醒：</strong> Agent 需要特权模式 (<code>--privileged</code>) 才能进行网络数据包捕获和 eBPF 程序加载。这是网络监控的必要权限。
+        </div>
+
+        <h3>网络要求</h3>
+        <ul>
+            <li><strong>Server 连接：</strong> Agent 需要能够访问 Server 的 API 端点</li>
+            <li><strong>DNS 解析：</strong> 需要 DNS 服务进行域名解析</li>
+            <li><strong>网络接口：</strong> 至少有一个可监控的网络接口</li>
+        </ul>
+
+        <h2 id="quick-start"><span class="emoji">🚀</span> 3. 快速开始</h2>
+
+        <h3>一键启动（推荐）</h3>
+        <p>使用项目提供的脚本快速启动完整的监控栈：</p>
+
+        <div class="code-block">
+# 克隆项目
+git clone https://github.com/zhoushoujianwork/go-net-monitoring.git
+cd go-net-monitoring
+
+# 一键启动（包含 Agent + Server + 监控栈）
+./run.sh
+        </div>
+
+        <div class="success">
+            <strong>✅ 启动成功后：</strong>
+            <ul>
+                <li>Agent: 自动开始网络监控</li>
+                <li>Server: http://localhost:8080</li>
+                <li>Prometheus: http://localhost:9090 (如果启用监控栈)</li>
+                <li>Grafana: http://localhost:3000 (admin/admin123)</li>
+            </ul>
+        </div>
+
+        <h3>Docker Compose 方式</h3>
+        <div class="code-block">
+# 启动基础服务（Agent + Server）
+docker-compose up -d
+
+# 启动完整监控栈（包含 Prometheus + Grafana）
+docker-compose --profile monitoring up -d
+
+# 查看服务状态
+docker-compose ps
+        </div>
+
+        <h3>验证部署</h3>
+        <div class="code-block">
+# 检查容器状态
+docker ps | grep netmon
+
+# 检查 Agent 健康状态
+docker logs netmon-agent | tail -10
+
+# 查看监控指标
+curl http://localhost:8080/metrics | grep network_
+        </div>
+
+        <h2 id="standalone-deployment"><span class="emoji">🎯</span> 4. 独立 Agent 部署</h2>
+
+        <h3>场景说明</h3>
+        <p>当你需要在多个主机上部署 Agent，或者 Server 已经在其他地方运行时，可以使用独立 Agent 部署方式。</p>
+
+        <h3>步骤 1: 启动 Server</h3>
+        <div class="code-block">
+# 启动 Server 容器
+docker run -d \
+  --name netmon-server \
+  -p 8080:8080 \
+  -e COMPONENT=server \
+  zhoushoujian/go-net-monitoring:latest
+
+# 验证 Server 启动
+curl http://localhost:8080/health
+        </div>
+
+        <h3>步骤 2: 启动 Agent</h3>
+        <div class="code-block">
+# 基础 Agent 部署
+docker run -d \
+  --name netmon-agent \
+  --privileged \
+  --network host \
+  -e COMPONENT=agent \
+  -e SERVER_URL=http://localhost:8080/api/v1/metrics \
+  zhoushoujian/go-net-monitoring:latest
+        </div>
+
+        <h3>步骤 3: 高级配置</h3>
+        <div class="code-block">
+# 带完整配置的 Agent 部署
+docker run -d \
+  --name netmon-agent \
+  --privileged \
+  --network host \
+  -e COMPONENT=agent \
+  -e SERVER_URL=http://your-server:8080/api/v1/metrics \
+  -e HOSTNAME=agent-host-1 \
+  -e LOG_LEVEL=debug \
+  -e NETWORK_INTERFACE=eth0 \
+  -v /var/log/netmon:/app/logs \
+  -v /var/lib/netmon:/var/lib/netmon \
+  zhoushoujian/go-net-monitoring:latest
+        </div>
+
+        <h2 id="configuration"><span class="emoji">⚙️</span> 5. 配置管理</h2>
+
+        <h3>环境变量配置</h3>
+        <table>
+            <tr>
+                <th>变量名</th>
+                <th>默认值</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>COMPONENT</td>
+                <td>agent</td>
+                <td>组件类型，必须设置为 "agent"</td>
+            </tr>
+            <tr>
+                <td>SERVER_URL</td>
+                <td>http://localhost:8080/api/v1/metrics</td>
+                <td>Server API 端点地址</td>
+            </tr>
+            <tr>
+                <td>HOSTNAME</td>
+                <td>容器ID</td>
+                <td>Agent 主机名标识</td>
+            </tr>
+            <tr>
+                <td>LOG_LEVEL</td>
+                <td>info</td>
+                <td>日志级别：debug, info, warn, error</td>
+            </tr>
+            <tr>
+                <td>NETWORK_INTERFACE</td>
+                <td>自动检测</td>
+                <td>监控的网络接口名称</td>
+            </tr>
+            <tr>
+                <td>DEBUG_MODE</td>
+                <td>false</td>
+                <td>是否启用调试模式</td>
+            </tr>
+        </table>
+
+        <h3>配置文件方式</h3>
+        <div class="code-block">
+# 创建配置文件
+cat > agent-config.yaml << EOF
+server:
+  host: "your-server-host"
+  port: 8080
+
+monitor:
+  interface: "eth0"
+  protocols: ["tcp", "udp", "http", "https"]
+  report_interval: "10s"
+  
+reporter:
+  server_url: "http://your-server:8080/api/v1/metrics"
+  timeout: "10s"
+  batch_size: 100
+
+log:
+  level: "info"
+  format: "json"
+EOF
+
+# 使用配置文件启动
+docker run -d \
+  --name netmon-agent \
+  --privileged \
+  --network host \
+  -e COMPONENT=agent \
+  -v $(pwd)/agent-config.yaml:/app/configs/agent.yaml:ro \
+  zhoushoujian/go-net-monitoring:latest
+        </div>
+
+        <h2 id="monitoring"><span class="emoji">📊</span> 6. 监控验证</h2>
+
+        <h3>检查 Agent 状态</h3>
+        <div class="code-block">
+# 查看容器状态
+docker ps | grep netmon-agent
+
+# 查看 Agent 日志
+docker logs netmon-agent
+
+# 查看实时日志
+docker logs -f netmon-agent
+        </div>
+
+        <h3>验证数据上报</h3>
+        <div class="code-block">
+# 检查基础指标
+curl -s http://localhost:8080/metrics | grep network_connections_total
+
+# 检查域名访问统计
+curl -s http://localhost:8080/metrics | grep network_domains_accessed_total
+
+# 检查流量统计
+curl -s http://localhost:8080/metrics | grep network_domain_bytes
+
+# 检查网卡信息
+curl -s http://localhost:8080/metrics | grep network_interface_info
+        </div>
+
+        <h3>生成测试流量</h3>
+        <div class="code-block">
+# 在 Agent 容器内生成测试流量
+docker exec netmon-agent sh -c "curl -s https://www.google.com > /dev/null"
+docker exec netmon-agent sh -c "ping -c 3 8.8.8.8"
+
+# 等待数据上报（默认10秒间隔）
+sleep 15
+
+# 查看新的域名统计
+curl -s http://localhost:8080/metrics | grep "www.google.com"
+        </div>
+
+        <h2 id="troubleshooting"><span class="emoji">🔧</span> 7. 故障排查</h2>
+
+        <h3>常见问题</h3>
+        
+        <h4>问题 1: Agent 容器启动失败</h4>
+        <div class="warning">
+            <strong>症状：</strong> 容器无法启动或立即退出
+        </div>
+        <div class="code-block">
+# 检查容器日志
+docker logs netmon-agent
+
+# 检查是否缺少特权模式
+docker run --rm --privileged --network host \
+  -e COMPONENT=agent \
+  zhoushoujian/go-net-monitoring:latest
+        </div>
+
+        <h4>问题 2: 无法连接到 Server</h4>
+        <div class="warning">
+            <strong>症状：</strong> Agent 日志显示连接错误
+        </div>
+        <div class="code-block">
+# 检查网络连通性
+docker exec netmon-agent curl -v http://your-server:8080/health
+
+# 检查 SERVER_URL 配置
+docker inspect netmon-agent | grep SERVER_URL
+        </div>
+
+        <h4>问题 3: 没有网络数据</h4>
+        <div class="warning">
+            <strong>症状：</strong> 指标显示为 0 或没有域名统计
+        </div>
+        <div class="code-block">
+# 检查网络接口
+docker exec netmon-agent ip addr show
+
+# 检查 eBPF 支持
+docker exec netmon-agent dmesg | grep -i bpf
+
+# 生成测试流量
+docker exec netmon-agent curl -s https://httpbin.org/get
+        </div>
+
+        <h3>调试模式</h3>
+        <div class="code-block">
+# 启用调试模式
+docker run -d \
+  --name netmon-agent-debug \
+  --privileged \
+  --network host \
+  -e COMPONENT=agent \
+  -e DEBUG_MODE=true \
+  -e LOG_LEVEL=debug \
+  zhoushoujian/go-net-monitoring:latest
+
+# 查看详细日志
+docker logs -f netmon-agent-debug
+        </div>
+
+        <h2 id="best-practices"><span class="emoji">💡</span> 8. 最佳实践</h2>
+
+        <h3>生产环境部署</h3>
+        <ul>
+            <li><strong>资源限制：</strong> 设置合适的 CPU 和内存限制</li>
+            <li><strong>日志管理：</strong> 配置日志轮转和持久化存储</li>
+            <li><strong>监控告警：</strong> 设置 Agent 健康检查和告警</li>
+            <li><strong>网络安全：</strong> 限制 Agent 的网络访问权限</li>
+        </ul>
+
+        <div class="code-block">
+# 生产环境推荐配置
+docker run -d \
+  --name netmon-agent \
+  --privileged \
+  --network host \
+  --restart unless-stopped \
+  --memory 512m \
+  --cpus 0.5 \
+  -e COMPONENT=agent \
+  -e SERVER_URL=https://monitoring.company.com/api/v1/metrics \
+  -e HOSTNAME=$(hostname) \
+  -e LOG_LEVEL=info \
+  -v /var/log/netmon:/app/logs \
+  -v /var/lib/netmon:/var/lib/netmon \
+  --log-driver json-file \
+  --log-opt max-size=100m \
+  --log-opt max-file=3 \
+  zhoushoujian/go-net-monitoring:latest
+        </div>
+
+        <h3>性能优化</h3>
+        <ul>
+            <li><strong>接口选择：</strong> 指定具体的网络接口而不是监控所有接口</li>
+            <li><strong>上报间隔：</strong> 根据需求调整数据上报频率</li>
+            <li><strong>过滤规则：</strong> 配置合适的流量过滤规则</li>
+            <li><strong>批量大小：</strong> 优化批量上报的数据大小</li>
+        </ul>
+
+        <h3>安全考虑</h3>
+        <div class="info">
+            <strong>🔒 安全提醒：</strong>
+            <ul>
+                <li>Agent 需要特权模式，请确保在可信环境中运行</li>
+                <li>定期更新镜像版本以获取安全补丁</li>
+                <li>使用 HTTPS 连接 Server 以保护数据传输</li>
+                <li>限制 Agent 容器的网络访问范围</li>
+            </ul>
+        </div>
+
+        <h3>监控和维护</h3>
+        <div class="code-block">
+# 定期检查脚本
+#!/bin/bash
+# check-agent.sh
+
+# 检查容器状态
+if ! docker ps | grep -q netmon-agent; then
+    echo "Agent 容器未运行，尝试重启..."
+    docker start netmon-agent
+fi
+
+# 检查数据上报
+METRICS=$(curl -s http://localhost:8080/metrics | grep network_connections_total | wc -l)
+if [ "$METRICS" -eq 0 ]; then
+    echo "警告：没有检测到网络指标数据"
+fi
+
+# 检查日志错误
+ERRORS=$(docker logs netmon-agent --since 1h | grep -i error | wc -l)
+if [ "$ERRORS" -gt 0 ]; then
+    echo "警告：发现 $ERRORS 个错误日志"
+fi
+        </div>
+
+        <div class="success">
+            <h3><span class="emoji">🎉</span> 部署完成</h3>
+            <p>恭喜！你已经成功部署了容器化的网络监控 Agent。Agent 现在正在收集网络流量数据并上报到 Server。</p>
+            <p>接下来你可以：</p>
+            <ul>
+                <li>访问 Grafana Dashboard 查看可视化监控数据</li>
+                <li>配置 Prometheus 告警规则</li>
+                <li>部署更多 Agent 到其他主机</li>
+                <li>根据业务需求调整监控配置</li>
+            </ul>
+        </div>
+
+        <hr>
+        <p><em>📝 文档更新时间：2025-07-08 | 版本：v1.0</em></p>
+    </div>
+</body>
+</html>
