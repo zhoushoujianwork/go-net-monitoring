@@ -1,0 +1,54 @@
+# eBPF 开发环境 Dockerfile (国内优化版本)
+FROM ubuntu:22.04
+
+# 设置非交互模式
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 使用国内镜像源加速
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+
+# 安装基础依赖
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    llvm \
+    libbpf-dev \
+    linux-headers-generic \
+    pkg-config \
+    curl \
+    git \
+    make \
+    wget \
+    gcc-multilib \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 使用国内Go镜像加速安装
+RUN wget -O go.tar.gz https://mirrors.aliyun.com/golang/go1.23.0.linux-amd64.tar.gz && \
+    tar -xzf go.tar.gz -C /usr/local && \
+    rm go.tar.gz
+
+# 设置Go环境变量（使用国内代理）
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+ENV GOSUMDB=sum.golang.google.cn
+ENV CGO_ENABLED=1
+
+# 设置工作目录
+WORKDIR /workspace
+
+# 验证安装
+RUN clang --version && \
+    llvm-config --version && \
+    go version && \
+    gcc --version
+
+# 创建非root用户
+RUN useradd -m -s /bin/bash developer && \
+    chown -R developer:developer /workspace
+
+USER developer
+
+CMD ["/bin/bash"]
