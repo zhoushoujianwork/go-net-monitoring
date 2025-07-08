@@ -3,88 +3,86 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"go-net-monitoring/internal/agent"
 	"go-net-monitoring/internal/config"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var (
-	configPath string
-	debugMode  bool
-	version    = "1.0.0"
-	buildTime  = "unknown"
-	gitCommit  = "unknown"
+	configFile string
+	debug      bool
 )
 
+var rootCmd = &cobra.Command{
+	Use:   "agent",
+	Short: "网络监控代理 (传统版本 - 已弃用)",
+	Long: `网络监控代理 - 传统版本
+
+注意: 此版本已被eBPF版本替代，建议使用 agent-ebpf 获得更好的性能。
+
+此版本仅保留用于兼容性测试。`,
+	RunE: runAgent,
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "configs/agent.yaml", "配置文件路径")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "启用调试模式")
+}
+
 func main() {
-	rootCmd := &cobra.Command{
-		Use:   "agent",
-		Short: "网络流量监控Agent",
-		Long:  `一个用于监控主机网络流量的Agent，支持域名和IP地址访问监控，并通过HTTP接口上报到配套的Server。`,
-		RunE:  runAgent,
-	}
-
-	rootCmd.Flags().StringVarP(&configPath, "config", "c", "configs/agent.yaml", "配置文件路径")
-	rootCmd.Flags().BoolVarP(&debugMode, "debug", "d", false, "启用debug模式")
-
-	// 添加--version标志支持
-	var showVersion bool
-	rootCmd.Flags().BoolVar(&showVersion, "version", false, "显示版本信息")
-
-	// 在运行前检查版本标志
-	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		if showVersion {
-			fmt.Printf("网络监控Agent\n")
-			fmt.Printf("版本: %s\n", version)
-			fmt.Printf("构建时间: %s\n", buildTime)
-			fmt.Printf("Git提交: %s\n", gitCommit)
-			os.Exit(0)
-		}
-		return nil
-	}
-
-	// 版本命令
-	versionCmd := &cobra.Command{
-		Use:   "version",
-		Short: "显示版本信息",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("网络监控Agent\n")
-			fmt.Printf("版本: %s\n", version)
-			fmt.Printf("构建时间: %s\n", buildTime)
-			fmt.Printf("Git提交: %s\n", gitCommit)
-		},
-	}
-
-	rootCmd.AddCommand(versionCmd)
-
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "错误: %v\n", err)
-		os.Exit(1)
+		logrus.WithError(err).Fatal("程序执行失败")
 	}
 }
 
 func runAgent(cmd *cobra.Command, args []string) error {
+	// 显示弃用警告
+	logrus.Warn("=== 传统Agent已弃用 ===")
+	logrus.Warn("建议使用eBPF版本: ./bin/agent-ebpf")
+	logrus.Warn("eBPF版本提供更好的性能和更低的资源消耗")
+	logrus.Warn("========================")
+
 	// 加载配置
-	cfg, err := config.SimpleLoadAgentConfig(configPath)
+	cfg, err := config.LoadAgentConfig(configFile)
 	if err != nil {
 		return fmt.Errorf("加载配置失败: %w", err)
 	}
 
-	// 如果启用了debug模式，设置日志级别和格式
-	if debugMode {
+	// 调试模式覆盖配置
+	if debug {
 		cfg.Log.Level = "debug"
-		cfg.Log.Format = "text" // debug模式使用text格式更易读
-		fmt.Println("Agent Debug模式已启用")
 	}
 
 	// 创建Agent
-	agent, err := agent.NewAgent(cfg)
+	agentInstance, err := agent.NewAgent(cfg)
 	if err != nil {
 		return fmt.Errorf("创建Agent失败: %w", err)
 	}
 
-	// 运行Agent
-	return agent.Run()
+	// 设置信号处理
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// 启动Agent
+	logrus.Info("启动传统网络监控代理 (已弃用)")
+	if err := agentInstance.Start(); err != nil {
+		return fmt.Errorf("启动Agent失败: %w", err)
+	}
+
+	// 等待信号
+	sig := <-sigChan
+	logrus.WithField("signal", sig).Info("收到停止信号")
+
+	// 停止Agent
+	if err := agentInstance.Stop(); err != nil {
+		logrus.WithError(err).Error("停止Agent失败")
+	}
+
+	logrus.Info("传统网络监控代理已退出")
+	return nil
 }

@@ -65,3 +65,5 @@ target/
 coverage.out
 coverage.html
 data/
+agent
+server

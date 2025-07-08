@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目概览：基于 eBPF 的云原生网络监控系统</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            margin-top: 30px;
+        }
+        .document-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .document-info p {
+            margin: 5px 0;
+        }
+        .architecture-diagram {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-family: monospace;
+            white-space: pre;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .highlight-box {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #007bff;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .diagram {
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .diagram-title {
+            font-size: 1.1em;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .diagram-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>项目概览：基于 eBPF 的云原生网络监控系统</h1>
+        
+        <div class="document-info">
+            <p>创建日期：2024-03-21</p>
+            <p>最后更新：2024-03-21</p>
+            <p>文档版本：1.0</p>
+        </div>
+
+        <h2>1. 项目简介</h2>
+        <p>这是一个专门为云原生环境设计的网络监控系统，基于 eBPF 技术实现。它能够实时监控和分析云服务器的网络流量，特别关注出网流量的监控和容器级别的网络行为分析。</p>
+
+        <div class="highlight-box">
+            <h3>核心价值</h3>
+            <ul>
+                <li>实时掌握云服务器出网流量情况</li>
+                <li>精确定位容器级别的网络行为</li>
+                <li>提供完整的流量分析和可视化</li>
+                <li>支持大规模云原生环境部署</li>
+            </ul>
+        </div>
+
+        <h2>2. 系统架构</h2>
+        <div class="diagram">
+            <div class="diagram-title">整体架构图</div>
+            <div class="mermaid">
+graph TD
+    subgraph K8s["Kubernetes 集群"]
+        N1[Node 1]
+        N2[Node 2]
+        N3[Node 3]
+    end
+    
+    subgraph Node1["Node 1 详情"]
+        A1[Agent eBPF] --> |监控| C1[Container 1]
+        A1 --> |监控| C2[Container 2]
+        A1 --> |监控| C3[Container 3]
+    end
+    
+    subgraph Central["中央服务"]
+        P[Prometheus]
+        G[Grafana]
+        A[告警系统]
+    end
+    
+    N1 --> |指标| P
+    N2 --> |指标| P
+    N3 --> |指标| P
+    P --> G
+    P --> A
+            </div>
+            <div class="diagram-description">
+                图1：展示了系统在 Kubernetes 集群中的部署架构，包括节点级 Agent、中央服务和监控展示系统。
+            </div>
+        </div>
+
+        <h2>3. 核心功能</h2>
+        <ul class="feature-list">
+            <li class="feature-item">
+                <h3>容器级网络监控</h3>
+                <p>- 自动识别容器网络接口</p>
+                <p>- 关联容器与网络流量</p>
+                <p>- 追踪容器生命周期</p>
+                <p>- 支持动态容器环境</p>
+            </li>
+            
+            <li class="feature-item">
+                <h3>流量分析</h3>
+                <p>- 出入向流量统计</p>
+                <p>- 协议级别分析</p>
+                <p>- 域名解析关联</p>
+                <p>- 连接追踪</p>
+            </li>
+            
+            <li class="feature-item">
+                <h3>可视化和告警</h3>
+                <p>- 实时流量面板</p>
+                <p>- 容器网络视图</p>
+                <p>- 异常流量告警</p>
+                <p>- 趋势分析报表</p>
+            </li>
+        </ul>
+
+        <h2>4. 技术实现</h2>
+        <div class="diagram">
+            <div class="diagram-title">数据流处理流程</div>
+            <div class="mermaid">
+graph LR
+    subgraph 数据流["数据流处理"]
+        direction TB
+        P1[网络数据包] --> XDP[XDP程序]
+        XDP --> TC[TC程序]
+        TC --> SK[Socket程序]
+        SK --> Maps[eBPF Maps]
+    end
+    
+    subgraph 分析["分析层"]
+        Maps --> Stats[统计聚合]
+        Stats --> Metrics[指标生成]
+        Metrics --> Export[Prometheus导出]
+    end
+    
+    subgraph 展示["可视化"]
+        Export --> Dashboard[Grafana面板]
+        Dashboard --> Alert[告警]
+        Dashboard --> Report[报表]
+    end
+            </div>
+            <div class="diagram-description">
+                图2：展示了从数据包捕获到最终展示的完整处理流程，包括 eBPF 程序链、数据处理和可视化环节。
+            </div>
+        </div>
+
+        <h3>容器监控实现</h3>
+        <div class="diagram">
+            <div class="diagram-title">容器监控工作流程</div>
+            <div class="mermaid">
+graph TD
+    subgraph Container["容器识别"]
+        C1[容器启动] --> |事件通知| D1[容器检测]
+        D1 --> |获取元数据| M1[容器信息]
+        M1 --> |关联| N1[网络接口]
+    end
+    
+    subgraph Network["网络监控"]
+        N1 --> |流量捕获| T1[流量分析]
+        T1 --> |DNS解析| D2[域名关联]
+        T1 --> |连接跟踪| C2[连接信息]
+    end
+    
+    subgraph Analysis["分析结果"]
+        D2 --> |聚合| S1[统计数据]
+        C2 --> |聚合| S1
+        S1 --> |展示| V1[可视化]
+    end
+            </div>
+            <div class="diagram-description">
+                图3：展示了容器识别、网络监控和分析结果的完整工作流程，说明了系统如何实现容器级别的网络监控。
+            </div>
+        </div>
+
+        <h2>5. 部署方案</h2>
+        <div class="diagram">
+            <div class="diagram-title">Kubernetes 部署架构</div>
+            <div class="mermaid">
+graph TD
+    subgraph K8s["Kubernetes 部署架构"]
+        DS[DaemonSet] -->|部署| Agent
+        CM[ConfigMap] -->|配置| Agent
+        SA[ServiceAccount] -->|权限| Agent
+        Agent -->|采集| Data[数据]
+    end
+    
+    subgraph Monitor["监控架构"]
+        Data -->|导出| Prom[Prometheus]
+        Prom -->|查询| Grafana
+        Prom -->|规则| Alert[告警]
+    end
+    
+    subgraph Visual["可视化"]
+        Grafana -->|展示| D1[流量面板]
+        Grafana -->|展示| D2[容器视图]
+        Grafana -->|展示| D3[异常检测]
+    end
+            </div>
+            <div class="diagram-description">
+                图4：展示了系统在 Kubernetes 中的完整部署架构，包括 DaemonSet、配置管理和监控组件的部署方式。
+            </div>
+        </div>
+
+        <h3>5.1 Kubernetes 部署</h3>
+        <div class="highlight-box">
+            <p>- DaemonSet 方式部署 Agent</p>
+            <p>- ConfigMap 配置管理</p>
+            <p>- RBAC 权限控制</p>
+            <p>- 资源限制和调度策略</p>
+        </div>
+
+        <h3>5.2 容器环境</h3>
+        <div class="highlight-box">
+            <p>- 支持 Docker/Containerd</p>
+            <p>- 容器运行时自动检测</p>
+            <p>- 网络插件兼容性</p>
+            <p>- 主机网络映射</p>
+        </div>
+
+        <h2>6. 应用场景</h2>
+        
+        <h3>6.1 云服务器出网监控</h3>
+        <div class="diagram">
+            <div class="diagram-title">DNS 解析与流量关联</div>
+            <div class="mermaid">
+graph TD
+    subgraph DNS["DNS 解析跟踪"]
+        DNS1[DNS 请求] -->|捕获| Parse1[解析请求]
+        Parse1 -->|提取| Domain[域名信息]
+        DNS2[DNS 响应] -->|捕获| Parse2[解析响应]
+        Parse2 -->|提取| IP[IP 信息]
+        Domain -->|关联| Map[域名-IP映射]
+        IP -->|关联| Map
+    end
+    
+    subgraph Flow["流量关联"]
+        Packet[网络数据包] -->|匹配| Map
+        Map -->|关联| Traffic[流量统计]
+        Traffic -->|聚合| Stats[域名级统计]
+    end
+            </div>
+            <div class="diagram-description">
+                图5：展示了系统如何通过 DNS 解析跟踪和流量关联，实现对出网流量的域名级别监控。
+            </div>
+        </div>
+        <ul>
+            <li>实时监控所有出向流量</li>
+            <li>识别异常外连行为</li>
+            <li>统计带宽使用情况</li>
+            <li>分析流量成本</li>
+        </ul>
+
+        <h3>6.2 容器网络分析</h3>
+        <ul>
+            <li>容器间通信分析</li>
+            <li>微服务调用关系</li>
+            <li>网络性能优化</li>
+            <li>故障排查定位</li>
+        </ul>
+
+        <h3>6.3 安全监控</h3>
+        <div class="diagram">
+            <div class="diagram-title">安全监控流程</div>
+            <div class="mermaid">
+graph LR
+    subgraph Security["安全监控流程"]
+        Flow[流量数据] -->|分析| Pattern[行为模式]
+        Pattern -->|检测| Anomaly[异常行为]
+        Anomaly -->|触发| Alert[告警通知]
+        Alert -->|响应| Action[安全措施]
+    end
+    
+    subgraph Types["异常类型"]
+        Anomaly --> T1[未授权访问]
+        Anomaly --> T2[数据外泄]
+        Anomaly --> T3[异常连接]
+        Anomaly --> T4[攻击行为]
+    end
+            </div>
+            <div class="diagram-description">
+                图6：展示了系统的安全监控流程，包括异常行为检测、告警和响应措施。
+            </div>
+        </div>
+        <ul>
+            <li>异常连接检测</li>
+            <li>未授权访问告警</li>
+            <li>数据外泄防护</li>
+            <li>网络攻击识别</li>
+        </ul>
+
+        <h2>7. 最佳实践</h2>
+        
+        <h3>7.1 部署建议</h3>
+        <ul>
+            <li>根据节点规模调整资源限制</li>
+            <li>配置合适的采样率</li>
+            <li>设置恰当的聚合周期</li>
+            <li>规划存储容量</li>
+        </ul>
+
+        <h3>7.2 性能优化</h3>
+        <ul>
+            <li>eBPF 程序优化</li>
+            <li>Map 大小调优</li>
+            <li>采样策略调整</li>
+            <li>缓存利用优化</li>
+        </ul>
+
+        <h2>8. 总结</h2>
+        <p>
+            本项目通过 eBPF 技术实现了高效的云原生网络监控系统，特别适合需要精确监控出网流量的云服务器环境。
+            通过在节点级别部署 Agent，可以全面捕获所有容器的网络行为，并提供丰富的分析功能和可视化界面。
+            系统的可扩展性和低开销特性使其特别适合在大规模 Kubernetes 集群中部署使用。
+        </p>
+    </div>
+</body>
+</html> 

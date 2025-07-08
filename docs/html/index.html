@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网络监控系统文档</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .nav-list {
+            list-style: none;
+            padding: 0;
+        }
+        .nav-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .nav-item:hover {
+            background: #e9ecef;
+            transform: translateX(10px);
+        }
+        .nav-link {
+            text-decoration: none;
+            color: #2c3e50;
+            display: block;
+        }
+        .nav-description {
+            color: #6c757d;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+        .document-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .document-info p {
+            margin: 5px 0;
+        }
+        .nav-item .document-date {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>网络监控系统文档</h1>
+        
+        <div class="document-info">
+            <p>创建日期：2024-03-21</p>
+            <p>最后更新：2024-03-21</p>
+            <p>文档版本：1.0</p>
+        </div>
+        
+        <p>欢迎访问网络监控系统文档中心。这里提供了系统相关的所有技术文档和指南。</p>
+        
+        <h2>文档导航</h2>
+        <ul class="nav-list">
+            <li class="nav-item">
+                <a href="project-overview.html" class="nav-link">
+                    <h3>项目概览：基于 eBPF 的云原生网络监控系统</h3>
+                    <div class="nav-description">
+                        详细介绍项目的功能特性、技术实现、部署方案和应用场景，特别关注云服务器出网流量监控和容器网络分析。
+                    </div>
+                    <div class="document-date">
+                        创建于：2024-03-21 | 最后更新：2024-03-21
+                    </div>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a href="network-monitoring-evolution.html" class="nav-link">
+                    <h3>技术演进：从 libpcap 到 eBPF</h3>
+                    <div class="nav-description">
+                        详细介绍了从传统的 libpcap 到现代 eBPF 技术的演进过程，包括架构对比、性能分析和最佳实践。
+                    </div>
+                    <div class="document-date">
+                        创建于：2024-03-21 | 最后更新：2024-03-21
+                    </div>
+                </a>
+            </li>
+            <!-- 可以继续添加更多文档链接 -->
+        </ul>
+    </div>
+</body>
+</html> 

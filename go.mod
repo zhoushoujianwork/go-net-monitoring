@@ -8,7 +8,6 @@ require (
 	github.com/cilium/ebpf v0.19.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/google/gopacket v1.1.19
 	github.com/prometheus/client_golang v1.17.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
