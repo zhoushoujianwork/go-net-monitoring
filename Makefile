@@ -36,6 +36,39 @@ BUILD_DIR := bin
 LINUX_BUILD_DIR := $(BUILD_DIR)/linux
 BPF_DIR := $(BUILD_DIR)/bpf
 
+# 确保release目录存在
+RELEASE_DIR := release/linux-amd64/bpf
+$(shell mkdir -p $(RELEASE_DIR))
+
+.PHONY: all
+all: build
+
+# 检查操作系统
+check-os:
+	@if [ "$(shell uname -s)" != "Linux" ]; then \
+		echo "$(RED)❌ 错误: 此程序只能在 Linux 环境下构建和运行$(NC)"; \
+		echo "$(YELLOW)原因: eBPF 功能需要 Linux 内核支持$(NC)"; \
+		echo "$(BLUE)建议: 请使用以下方式之一:$(NC)"; \
+		echo "  1. 在 Linux 环境下构建"; \
+		echo "  2. 使用 Docker 容器构建: make docker-build"; \
+		echo "  3. 使用 Docker Compose: make docker-up"; \
+		exit 1; \
+	fi
+
+# 修改 build 目标
+.PHONY: build
+build: check-os build-ebpf build-go ## 构建所有组件 (仅支持 Linux)
+
+.PHONY: build-ebpf
+build-ebpf:
+	$(MAKE) -C bpf
+	cp bpf/xdp_monitor.o $(RELEASE_DIR)/
+	cp bpf/xdp_monitor_linux.o $(RELEASE_DIR)/
+
+.PHONY: build-go
+build-go:
+	go build -o release/linux-amd64/agent-ebpf ./cmd/agent-ebpf
+
 help: ## 显示帮助信息
 	@echo "$(BLUE)Go Network Monitoring 构建工具$(NC)"
 	@echo ""
@@ -123,3 +156,32 @@ info: ## 显示构建信息
 	@echo "  Go版本: $(GREEN)$(GO_VERSION)$(NC)"
 	@echo "  目标平台: $(GREEN)$(GOOS_LINUX)/$(GOARCH)$(NC)"
 	@echo "  输出目录: $(GREEN)$(LINUX_BUILD_DIR)$(NC)"
+
+# 开发相关的目标
+.PHONY: docker-dev docker-dev-build docker-dev-down docker-dev-logs
+
+docker-dev-build: ## 构建开发环境镜像
+	@echo "$(BLUE)构建开发环境镜像...$(NC)"
+	docker-compose -f docker-compose.dev.yml build
+
+docker-dev: ## 启动开发环境
+	@echo "$(BLUE)启动开发环境...$(NC)"
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo "$(GREEN)✅ 开发环境已启动$(NC)"
+	@echo "$(YELLOW)提示:$(NC)"
+	@echo "  - 查看日志: make docker-dev-logs"
+	@echo "  - 停止环境: make docker-dev-down"
+
+docker-dev-down: ## 停止开发环境
+	@echo "$(BLUE)停止开发环境...$(NC)"
+	docker-compose -f docker-compose.dev.yml down
+	@echo "$(GREEN)✅ 开发环境已停止$(NC)"
+
+docker-dev-logs: ## 查看开发环境日志
+	docker-compose -f docker-compose.dev.yml logs -f
+
+docker-dev-restart: ## 重启开发环境
+	@echo "$(BLUE)重启开发环境...$(NC)"
+	docker-compose -f docker-compose.dev.yml restart
+	@echo "$(GREEN)✅ 开发环境已重启$(NC)"
+	@echo "$(YELLOW)提示: 使用 make docker-dev-logs 查看日志$(NC)"

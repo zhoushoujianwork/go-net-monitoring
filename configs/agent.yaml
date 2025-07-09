@@ -1,7 +1,20 @@
-# Agent配置文件 - 支持混合方案(Agent持久化 + Server智能累计)
+# Agent配置文件 - 纯增量方案(Server端累计)
 server:
-  host: "localhost"                # Docker host网络模式下使用localhost，容器网络使用server
+  host: "host.docker.internal"     # 使用特殊的Docker DNS名称访问宿主机
   port: 8080
+
+# Agent信息配置
+agent:
+  id: ""                           # Agent唯一标识，为空时自动生成
+  name: "go-net-monitoring-agent"  # Agent名称
+  version: "2.0.0-ebpf"           # Agent版本
+  tags:                           # Agent标签
+    - "production"
+    - "linux"
+  report_online: true             # 是否上报上线信息
+  online_report_url: "http://host.docker.internal:8080/api/v1/agent/online"  # 上线信息上报URL
+  heartbeat_interval: "60s"       # 心跳间隔
+  auto_detect_interface: true     # 是否自动检测网卡
 
 monitor:
   interface: "eth0"                # 网络接口，Docker中通常是eth0，本地可能是en0/wlan0等
@@ -36,17 +49,15 @@ persistence:
 
 # eBPF程序配置
 ebpf:
-  program_path: "/opt/go-net-monitoring/bpf/xdp_monitor.o"  # 生产环境路径
-  # program_path: "bpf/xdp_monitor.o"  # 开发环境相对路径
+  program_path: "release/linux-amd64/bpf/xdp_monitor.o"  # 默认使用相对路径
   fallback_paths:                  # 备用路径列表，按优先级排序
-    - "bpf/xdp_monitor.o"
-    - "bin/bpf/xdp_monitor.o"
-    - "bin/bpf/xdp_monitor_linux.o"
-    - "/usr/local/bin/bpf/xdp_monitor.o"
+    - "release/linux-amd64/bpf/xdp_monitor_linux.o"  # 兼容版本
+    - "/opt/go-net-monitoring/bpf/xdp_monitor.o"     # 系统安装路径
+    - "/usr/local/bin/bpf/xdp_monitor.o"             # 传统路径
   enable_fallback: true            # 启用模拟模式回退
 
 reporter:
-  server_url: "http://localhost:8080/api/v1/metrics"  # Server API地址
+  server_url: "http://localhost:8080/api/v1/metrics"  # 使用特殊的Docker DNS名称访问宿主机
   timeout: "10s"
   retry_count: 3
   retry_delay: "5s"
@@ -55,12 +66,11 @@ reporter:
   tls_cert_path: ""
   tls_key_path: ""
   
-  # 混合方案配置
-  mode: "incremental"              # 增量模式上报
-  include_totals: true             # 同时包含累计数据
+  # 增量上报配置
+  mode: "incremental"              # 固定为增量模式
   agent_id: "${HOSTNAME}"          # Agent唯一标识，支持环境变量
 
 log:
-  level: "info"                    # debug, info, warn, error
+  level: "debug"                   # debug, info, warn, error
   format: "json"                   # json, text
   output: "stdout"                 # stdout, stderr, 或文件路径

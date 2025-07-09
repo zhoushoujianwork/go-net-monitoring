@@ -4,19 +4,16 @@ import (
 	"time"
 )
 
-// MetricsReport 增强的指标报告结构
+// MetricsReport 指标报告结构
 type MetricsReport struct {
 	// Agent信息
 	AgentID     string    `json:"agent_id"`
 	StartupTime time.Time `json:"startup_time"`
 	ReportTime  time.Time `json:"report_time"`
-	ReportMode  string    `json:"report_mode"` // "incremental" 或 "cumulative"
+	ReportMode  string    `json:"report_mode"` // 固定为 "incremental"
 
 	// 增量数据（自上次上报以来的变化）
-	DeltaStats map[string]DomainMetrics `json:"delta_stats,omitempty"`
-
-	// 累计数据（Agent启动以来的总计）
-	TotalStats map[string]DomainMetrics `json:"total_stats,omitempty"`
+	DeltaStats map[string]DomainMetrics `json:"delta_stats"`
 
 	// 系统信息
 	SystemInfo SystemMetrics `json:"system_info"`

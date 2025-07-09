@@ -15,6 +15,7 @@ type AgentConfig struct {
 	Persistence PersistenceConfig `yaml:"persistence"`
 	EBPF        EBPFConfig        `yaml:"ebpf"`
 	Log         LogConfig         `yaml:"log"`
+	Agent       AgentInfoConfig   `yaml:"agent"`       // 新增：Agent信息配置
 }
 
 // ServerConfig 服务器配置
@@ -75,6 +76,18 @@ type LogConfig struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 	Output string `yaml:"output"`
+}
+
+// AgentInfoConfig Agent信息配置
+type AgentInfoConfig struct {
+	ID                string        `yaml:"id"`                  // Agent唯一标识，为空时自动生成
+	Name              string        `yaml:"name"`                // Agent名称
+	Version           string        `yaml:"version"`             // Agent版本
+	Tags              []string      `yaml:"tags"`                // Agent标签
+	ReportOnline      bool          `yaml:"report_online"`       // 是否上报上线信息
+	OnlineReportURL   string        `yaml:"online_report_url"`   // 上线信息上报URL
+	HeartbeatInterval time.Duration `yaml:"heartbeat_interval"`  // 心跳间隔
+	AutoDetectInterface bool        `yaml:"auto_detect_interface"` // 是否自动检测网卡
 }
 
 // ServerAppConfig Server应用配置

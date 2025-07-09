@@ -30,16 +30,17 @@ endif
 # 源文件和目标文件
 PROGRAMS_DIR := programs
 HEADERS_DIR := headers
-OUTPUT_DIR := ../bin/bpf
+OUTPUT_DIR := ../release/linux-amd64/bpf
 
 # 查找所有 .c 文件
 SOURCES := $(wildcard $(PROGRAMS_DIR)/*.c)
 OBJECTS := $(SOURCES:$(PROGRAMS_DIR)/%.c=$(OUTPUT_DIR)/%.o)
+COMPAT_OBJECTS := $(SOURCES:$(PROGRAMS_DIR)/%.c=$(OUTPUT_DIR)/%_linux.o)
 
 # 默认目标
 .PHONY: all clean install headers docker-build
 
-all: $(BPF_HEADERS) $(OUTPUT_DIR) $(OBJECTS)
+all: $(BPF_HEADERS) $(OUTPUT_DIR) $(OBJECTS) $(COMPAT_OBJECTS)
 
 # 创建输出目录
 $(OUTPUT_DIR):
@@ -49,10 +50,21 @@ $(OUTPUT_DIR):
 headers:
 	mkdir -p $(HEADERS_DIR)
 
-# 编译 eBPF 程序
+# 编译 eBPF 程序（标准版本）
 $(OUTPUT_DIR)/%.o: $(PROGRAMS_DIR)/%.c
 	@echo "Compiling eBPF program: $< ($(UNAME_S))"
 	$(CLANG) $(CFLAGS) -c $< -o $@
+	@if command -v $(LLVM_STRIP) >/dev/null 2>&1; then \
+		$(LLVM_STRIP) -g $@; \
+		echo "Stripped debug symbols from $@"; \
+	else \
+		echo "Warning: llvm-strip not found, skipping strip"; \
+	fi
+
+# 编译 eBPF 程序（兼容版本）
+$(OUTPUT_DIR)/%_linux.o: $(PROGRAMS_DIR)/%.c
+	@echo "Compiling eBPF program (Linux compat): $< ($(UNAME_S))"
+	$(CLANG) $(CFLAGS) -D__LINUX_COMPAT__ -c $< -o $@
 	@if command -v $(LLVM_STRIP) >/dev/null 2>&1; then \
 		$(LLVM_STRIP) -g $@; \
 		echo "Stripped debug symbols from $@"; \
@@ -78,7 +90,7 @@ install: all
 # 验证编译结果
 verify: all
 	@echo "Verifying eBPF programs..."
-	@for obj in $(OBJECTS); do \
+	@for obj in $(OBJECTS) $(COMPAT_OBJECTS); do \
 		if [ -f "$$obj" ]; then \
 			echo "✅ Checking $$obj..."; \
 			file $$obj; \
@@ -95,6 +107,7 @@ env:
 	@echo "  LLVM Strip: $(shell which $(LLVM_STRIP) 2>/dev/null || echo 'not found')"
 	@echo "  CFLAGS: $(CFLAGS)"
 	@echo "  BPF Headers: $(BPF_HEADERS)"
+	@echo "  Output Dir: $(OUTPUT_DIR)"
 
 # 测试编译环境
 test-env:
@@ -110,7 +123,7 @@ test-env:
 # 帮助信息
 help:
 	@echo "Available targets:"
-	@echo "  all          - Compile all eBPF programs"
+	@echo "  all          - Compile all eBPF programs (standard and compat)"
 	@echo "  docker-build - Build using Docker (recommended for macOS)"
 	@echo "  clean        - Remove compiled objects"
 	@echo "  install      - Install compiled programs"

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # 开发模式的 eBPF Agent
+  ebpf-agent-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ebpf-agent
+      target: builder  # 使用构建阶段的镜像，包含开发工具
+    container_name: netmon-ebpf-agent-dev
+    privileged: true  # eBPF需要特权模式
+    # network_mode: host  # 在 macOS 上不使用 host 网络模式
+    pid: host  # 需要访问主机进程信息
+    volumes:
+      - .:/app:rw  # 挂载整个项目目录
+      - /sys/fs/bpf:/sys/fs/bpf:rw  # BPF文件系统
+      - /sys/kernel/debug:/sys/kernel/debug:ro  # 调试信息
+      - go-modules:/go/pkg/mod  # 缓存Go模块
+    environment:
+      - LOG_LEVEL=debug
+      - DEBUG_MODE=true
+      - INTERFACE=eth0
+      - SERVER_URL=http://host.docker.internal:8080/api/v1/metrics
+      - GOMAXPROCS=2
+      - GOPROXY=https://goproxy.cn,direct
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 确保在所有平台上都能访问宿主机
+    command: ["sh", "-c", "go run cmd/agent-ebpf/main.go --config configs/agent.yaml"]
+
+volumes:
+  go-modules:  # 持久化Go模块缓存

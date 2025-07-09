@@ -77,7 +77,7 @@ func (cm *CumulativeManager) ProcessMetrics(report common.MetricsReport) error {
 		"agent_id":         agentID,
 		"report_mode":      report.ReportMode,
 		"restart_detected": restartResult.IsRestart,
-		"domains_count":    len(report.TotalStats),
+		"domains_count":    len(report.DeltaStats),
 	}).Debug("Processed metrics report")
 
 	return nil
@@ -115,12 +115,12 @@ func (cm *CumulativeManager) detectAgentRestart(agentID string, report common.Me
 	}
 
 	// 检查指标是否重置（备用检测方法）
-	if !result.IsRestart && len(report.TotalStats) > 0 {
+	if !result.IsRestart && len(report.DeltaStats) > 0 {
 		lastReport, hasLastReport := cm.storage.RawMetrics[agentID]
-		if hasLastReport && len(lastReport.TotalStats) > 0 {
+		if hasLastReport && len(lastReport.DeltaStats) > 0 {
 			// 检查是否有指标值减少（表明重启）
-			for domain, currentStats := range report.TotalStats {
-				if lastStats, exists := lastReport.TotalStats[domain]; exists {
+			for domain, currentStats := range report.DeltaStats {
+				if lastStats, exists := lastReport.DeltaStats[domain]; exists {
 					if currentStats.AccessCount < lastStats.AccessCount ||
 						currentStats.BytesSent < lastStats.BytesSent ||
 						currentStats.BytesReceived < lastStats.BytesReceived {
@@ -151,7 +151,7 @@ func (cm *CumulativeManager) handleAgentRestart(agentID string, report common.Me
 		}
 
 		// 将重启前的累计值作为基线
-		for domain, stats := range lastReport.TotalStats {
+		for domain, stats := range lastReport.DeltaStats {
 			if baseline, hasBaseline := cm.storage.RestartBaselines[agentID][domain]; hasBaseline {
 				// 累加到现有基线
 				cm.storage.RestartBaselines[agentID][domain] = common.MergeMetrics(baseline, stats)
@@ -194,7 +194,7 @@ func (cm *CumulativeManager) updateAgentState(agentID string, report common.Metr
 // updateCumulativeMetrics 更新累计指标
 func (cm *CumulativeManager) updateCumulativeMetrics(agentID string, report common.MetricsReport, isRestart bool) {
 	// 处理每个域名的指标
-	for domain, currentStats := range report.TotalStats {
+	for domain, currentStats := range report.DeltaStats {
 		// 计算真实的累计值
 		realCumulative := currentStats
 
@@ -227,7 +227,7 @@ func (cm *CumulativeManager) updateGlobalCumulativeForDomain(domain, agentID str
 	// 获取该Agent之前的贡献
 	var previousContribution common.DomainMetrics
 	if lastReport, exists := cm.storage.RawMetrics[agentID]; exists {
-		if lastStats, hasDomain := lastReport.TotalStats[domain]; hasDomain {
+		if lastStats, hasDomain := lastReport.DeltaStats[domain]; hasDomain {
 			previousContribution = lastStats
 
 			// 如果启用基线跟踪，加上基线值
@@ -388,7 +388,7 @@ func (cm *CumulativeManager) CleanupExpiredData(maxAge time.Duration) error {
 	for _, agentID := range expiredAgents {
 		// 从全局累计中减去该Agent的贡献
 		if report, exists := cm.storage.RawMetrics[agentID]; exists {
-			for domain, stats := range report.TotalStats {
+			for domain, stats := range report.DeltaStats {
 				cm.removeAgentContributionFromGlobal(domain, agentID, stats)
 			}
 		}

@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"go-net-monitoring/internal/common"
+
+	"github.com/sirupsen/logrus"
 )
 
 // SimpleCumulativeManager 简化的累计指标管理器
@@ -73,7 +74,7 @@ func (scm *SimpleCumulativeManager) ProcessMetrics(report common.MetricsReport) 
 		scm.handleRestart(agentID, report)
 	} else {
 		// 直接更新累计值
-		for domain, metrics := range report.TotalStats {
+		for domain, metrics := range report.DeltaStats {
 			metrics.Domain = domain
 			scm.agentMetrics[agentID][domain] = metrics
 		}
@@ -86,7 +87,7 @@ func (scm *SimpleCumulativeManager) ProcessMetrics(report common.MetricsReport) 
 	scm.logger.WithFields(logrus.Fields{
 		"agent_id":   agentID,
 		"is_restart": isRestart,
-		"domains":    len(report.TotalStats),
+		"domains":    len(report.DeltaStats),
 	}).Debug("Processed metrics report")
 
 	return nil
@@ -127,7 +128,7 @@ func (scm *SimpleCumulativeManager) handleRestart(agentID string, report common.
 	previousMetrics := scm.agentMetrics[agentID]
 
 	// 将新的累计值与重启前的值合并
-	for domain, newMetrics := range report.TotalStats {
+	for domain, newMetrics := range report.DeltaStats {
 		if prevMetrics, exists := previousMetrics[domain]; exists {
 			// 合并指标
 			mergedMetrics := common.DomainMetrics{

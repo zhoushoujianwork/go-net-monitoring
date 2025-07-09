@@ -3,7 +3,7 @@ server:
   port: 8080
 
 storage:
-  type: "redis"                    # 使用Redis持久化存储，如需内存模式改为"memory"
+  type: "memory"                   # 使用内存存储，如需Redis持久化改为"redis"
   retention: "24h"                 # 数据保留时间
   
   # 混合方案配置 - 解决Agent重启数据丢失问题

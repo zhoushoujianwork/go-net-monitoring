@@ -18,14 +18,15 @@ import (
 
 // EBPFAgent eBPF网络监控代理
 type EBPFAgent struct {
-	config     *config.AgentConfig
-	logger     *logrus.Logger
-	xdpLoader  *loader.XDPLoader
-	reporter   *reporter.Reporter
-	ctx        context.Context
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
-	startTime  time.Time
+	config        *config.AgentConfig
+	logger        *logrus.Logger
+	xdpLoader     *loader.XDPLoader
+	reporter      *reporter.Reporter
+	onlineManager *OnlineManager  // 新增：上线管理器
+	ctx           context.Context
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
+	startTime     time.Time
 	
 	// 统计数据
 	lastStats  *loader.PacketStats
@@ -43,8 +44,29 @@ func NewEBPFAgent(cfg *config.AgentConfig) (*EBPFAgent, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// 创建上线管理器
+	onlineManager, err := NewOnlineManager(&cfg.Agent, &cfg.Reporter, logger)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("创建上线管理器失败: %w", err)
+	}
+
+	// 自动检测网卡（如果启用）
+	monitorInterface := cfg.Monitor.Interface
+	if cfg.Agent.AutoDetectInterface {
+		recommendedInterface := onlineManager.GetRecommendedInterface()
+		if recommendedInterface != "" {
+			logger.WithFields(logrus.Fields{
+				"original":    monitorInterface,
+				"recommended": recommendedInterface,
+			}).Info("自动检测到推荐的监控网卡")
+			monitorInterface = recommendedInterface
+			cfg.Monitor.Interface = monitorInterface // 更新配置
+		}
+	}
+
 	// 创建XDP加载器
-	xdpLoader := loader.NewXDPLoader(cfg.Monitor.Interface, logger)
+	xdpLoader := loader.NewXDPLoader(monitorInterface, logger)
 
 	// 创建Reporter
 	rep, err := reporter.NewReporter(&cfg.Reporter, logger)
@@ -54,20 +76,21 @@ func NewEBPFAgent(cfg *config.AgentConfig) (*EBPFAgent, error) {
 	}
 
 	agent := &EBPFAgent{
-		config:    cfg,
-		logger:    logger,
-		xdpLoader: xdpLoader,
-		reporter:  rep,
-		ctx:       ctx,
-		cancel:    cancel,
-		startTime: time.Now(),
-		metrics:   common.NetworkMetrics{
+		config:        cfg,
+		logger:        logger,
+		xdpLoader:     xdpLoader,
+		reporter:      rep,
+		onlineManager: onlineManager,
+		ctx:           ctx,
+		cancel:        cancel,
+		startTime:     time.Now(),
+		metrics:       common.NetworkMetrics{
 			DomainsAccessed: make(map[string]uint64),
 			IPsAccessed:     make(map[string]uint64),
 			ProtocolStats:   make(map[string]uint64),
 			PortStats:       make(map[int]uint64),
 			DomainTraffic:   make(map[string]*common.DomainTrafficStats),
-			Interface:       cfg.Monitor.Interface,
+			Interface:       monitorInterface,
 		},
 	}
 
@@ -77,6 +100,12 @@ func NewEBPFAgent(cfg *config.AgentConfig) (*EBPFAgent, error) {
 // Start 启动eBPF Agent
 func (a *EBPFAgent) Start() error {
 	a.logger.Info("启动eBPF网络监控代理")
+
+	// 启动上线管理器
+	if err := a.onlineManager.Start(); err != nil {
+		a.logger.WithError(err).Error("启动上线管理器失败")
+		// 不返回错误，允许Agent继续运行
+	}
 
 	// 启动Reporter
 	if err := a.reporter.Start(); err != nil {
@@ -286,6 +315,13 @@ func (a *EBPFAgent) Stop() error {
 
 	// 等待所有goroutine结束
 	a.wg.Wait()
+
+	// 停止上线管理器
+	if a.onlineManager != nil {
+		if err := a.onlineManager.Stop(); err != nil {
+			a.logger.WithError(err).Error("停止上线管理器失败")
+		}
+	}
 
 	// 停止Reporter
 	if a.reporter != nil {

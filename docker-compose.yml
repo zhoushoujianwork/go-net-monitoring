@@ -1,96 +1,62 @@
 version: '3.8'
 
 services:
-  # Redis 数据库 (持久化存储)
-  redis:
-    image: redis:7-alpine
-    container_name: netmon-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./data/redis_data:/data
-    command: redis-server --appendonly yes
+  # eBPF Agent 服务
+  ebpf-agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ebpf-agent
+    container_name: netmon-ebpf-agent
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    networks:
-      - netmon
+    privileged: true  # eBPF需要特权模式
+    network_mode: host  # 需要访问主机网络接口
+    pid: host  # 需要访问主机进程信息
+    volumes:
+      - /sys/fs/bpf:/sys/fs/bpf:rw  # BPF文件系统
+      - /sys/kernel/debug:/sys/kernel/debug:ro  # 调试信息
+      - ./configs:/app/configs:ro  # 配置文件
+      - ./logs:/app/logs:rw  # 日志目录
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - INTERFACE=${INTERFACE:-eth0}
+      - SERVER_URL=${SERVER_URL:-http://netmon-server:8080/api/v1/metrics}
+    depends_on:
+      - server
+    labels:
+      - "com.netmon.service=ebpf-agent"
+      - "com.netmon.version=2.0.0-ebpf"
 
-  # 网络监控服务器
+  # Server 服务 (现有)
   server:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
-    image: go-net-monitoring:latest
+      args:
+        COMPONENT: server
     container_name: netmon-server
-    environment:
-      - COMPONENT=server
-      - REDIS_HOST=redis
-      - DEBUG_MODE=false
-      - LOG_LEVEL=info
+    restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      # 配置文件挂载是可选的，如果不存在会自动生成
-      - ./configs/server.yaml:/app/configs/server.yaml:ro
-      - ./data:/app/data
-      - ./logs:/app/logs
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - netmon
-
-  # 网络监控代理
-  agent:
-    image: go-net-monitoring:latest
-    container_name: netmon-agent
+      - ./configs/server-local.yaml:/app/configs/server.yaml:ro
+      - ./logs:/app/logs:rw
     environment:
-      - COMPONENT=agent
-      - HOSTNAME=${HOSTNAME:-netmon-agent}
-      - DEBUG_MODE=false
-      - LOG_LEVEL=info
-      - SERVER_URL=http://server:8080/api/v1/metrics
-      # - NETWORK_INTERFACE=eth0
-      # 代理绕过配置
-      - no_proxy=localhost,127.0.0.1,server,redis,prometheus,grafana,172.25.0.0/16
-      - NO_PROXY=localhost,127.0.0.1,server,redis,prometheus,grafana,172.25.0.0/16
-      - http_proxy=
-      - https_proxy=
-      - HTTP_PROXY=
-      - HTTPS_PROXY=
-    depends_on:
-      - server
-    privileged: true    # 需要特权模式进行网络监控
-    volumes:
-      # 配置文件挂载是可选的，如果不存在会自动生成
-      - ./configs/agent.yaml:/app/configs/agent.yaml:ro
-      - ./logs:/app/logs
-      - ./agent/:/var/lib/netmon  # 持久化Agent状态
-    restart: unless-stopped
-    networks:
-      - netmon
-    healthcheck:
-      test: ["CMD", "pgrep", "agent"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+    labels:
+      - "com.netmon.service=server"
 
-  # Prometheus 监控 (可选，使用 --profile monitoring 启动)
+  # Prometheus (监控)
   prometheus:
     image: prom/prometheus:latest
     container_name: netmon-prometheus
+    restart: unless-stopped
     ports:
       - "9090:9090"
     volumes:
-      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./data/prometheus_data:/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -98,32 +64,27 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
-    restart: unless-stopped
-    networks:
-      - netmon
-    profiles:
-      - monitoring
+    labels:
+      - "com.netmon.service=prometheus"
 
-  # Grafana 仪表板 (可选，使用 --profile monitoring 启动)
+  # Grafana (可视化)
   grafana:
     image: grafana/grafana:latest
     container_name: netmon-grafana
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./docker/grafana:/etc/grafana/provisioning:ro
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
       - no_proxy=localhost,127.0.0.1,prometheus,server,redis,172.25.0.0/16
       - NO_PROXY=localhost,127.0.0.1,prometheus,server,redis,172.25.0.0/16
-    volumes:
-      - ./data/grafana_data:/var/lib/grafana
-      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
-    restart: unless-stopped
-    networks:
-      - netmon
-    profiles:
-      - monitoring
+    labels:
+      - "com.netmon.service=grafana"
 
 networks:
-  netmon:
-    driver: bridge
+  default:
+    name: netmon-network

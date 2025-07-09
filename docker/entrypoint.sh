@@ -17,11 +17,6 @@ case "${COMPONENT}" in
         echo "启动Server..."
         exec ./server --config configs/server.yaml
         ;;
-    "agent")
-        echo "启动传统Agent (已弃用)..."
-        echo "建议使用eBPF版本获得更好的性能"
-        exec ./agent --config configs/agent.yaml
-        ;;
     "agent-ebpf")
         echo "启动eBPF Agent..."
         exec ./agent-ebpf --config configs/agent.yaml
